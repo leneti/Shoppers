@@ -1,5 +1,4 @@
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-// import * as Crypto from "expo-crypto";
 
 /**
  * When provided with an image uri, converts it to a Blob and uploads the image to Google's Firebase Storage.
@@ -34,7 +33,6 @@ const getPath = (uri) => {
   return `U-${d
     .toLocaleDateString("en-GB")
     .replace(/\//g, "-")}--${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`;
-  // return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, uri);
 };
 
 /**
