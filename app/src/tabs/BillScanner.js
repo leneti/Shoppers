@@ -57,7 +57,13 @@ export default function BillScanner() {
           .firestore()
           .collection("bills")
           .doc(pathToSave)
-          .set(googleResponse);
+          .set({
+            ...googleResponse,
+            total: googleResponse.items.reduce(
+              (a, c) => a + parseFloat(c.price),
+              0
+            ),
+          });
         console.log(`${pathToSave} saved to Firestore`);
         setPathToSave(null);
       } catch (e) {
