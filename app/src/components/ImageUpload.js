@@ -1,4 +1,4 @@
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import firebase from "firebase";
 
 /**
  * When provided with an image uri, converts it to a Blob and uploads the image to Google's Firebase Storage.
@@ -8,14 +8,14 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 export const uploadImage = async (imageUri) => {
   try {
     if (imageUri === "")
-      throw Error(
+      throw new Error(
         `Image not provided, rejecting empty string. Expeted {string}, got ${typeof imageUri}: ${imageUri}`
       );
     const storagePath = getPath(imageUri);
-    const storageRef = ref(getStorage(), storagePath);
+    const storageRef = firebase.storage().ref().child(storagePath);
     const blob = await uriToBlob(imageUri);
-    const snapshot = await uploadBytes(storageRef, blob);
-    const url = await getDownloadURL(snapshot.ref);
+    const snapshot = await storageRef.put(blob);
+    const url = await snapshot.ref.getDownloadURL();
     console.log(`Image uploaded to ${url}`);
     blob.close();
     return { url, path: storagePath };

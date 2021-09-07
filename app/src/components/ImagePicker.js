@@ -1,49 +1,45 @@
 import * as ImagePicker from "expo-image-picker";
 
-const imageOptions = () => ({
+const imageOptions = {
   mediaTypes: ImagePicker.MediaTypeOptions.Images,
   allowsEditing: true,
   quality: 0.5, // [0 - 1] compression: smallest size -> best quality
-});
+};
 
 export const pickImage = async () => {
-  const { status } = await ImagePicker.getMediaLibraryPermissionsAsync();
-  let result;
-  if (status !== "granted") {
-    ImagePicker.requestMediaLibraryPermissionsAsync().then(async (res) => {
+  try {
+    const { status } = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      const res = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (res.status !== "granted") {
         alert("Sorry, we need camera roll permissions to make this work!");
-        return null;
-      } else {
-        result = await ImagePicker.launchImageLibraryAsync(imageOptions());
+        throw new Error("Camera roll access permission denied");
       }
-    });
-  } else {
-    result = await ImagePicker.launchImageLibraryAsync(imageOptions());
+    }
+    const result = await ImagePicker.launchImageLibraryAsync(imageOptions);
+    console.log(result);
+    return result;
+  } catch (e) {
+    console.warn(e);
+    return null;
   }
-
-  console.log(result);
-  console.log();
-  return result;
 };
 
 export const takePicture = async () => {
-  const { status } = await ImagePicker.getCameraPermissionsAsync();
-  let result;
-  if (status !== "granted") {
-    ImagePicker.requestCameraPermissionsAsync().then(async (res) => {
+  try {
+    const { status } = await ImagePicker.getCameraPermissionsAsync();
+    if (status !== "granted") {
+      const res = await ImagePicker.requestCameraPermissionsAsync();
       if (res.status !== "granted") {
         alert("Sorry, we need camera permissions to make this work!");
-        return null;
-      } else {
-        result = await ImagePicker.launchCameraAsync(imageOptions());
+        throw new Error("Camera permission denied");
       }
-    });
-  } else {
-    result = await ImagePicker.launchCameraAsync(imageOptions());
+    }
+    const result = await ImagePicker.launchCameraAsync(imageOptions);
+    console.log(result);
+    return result;
+  } catch (e) {
+    console.warn(e);
+    return null;
   }
-
-  console.log(result);
-  console.log();
-  return result;
 };
