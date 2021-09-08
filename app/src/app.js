@@ -21,7 +21,7 @@ export default function App() {
           header: () => {},
           tabBarStyle: {
             backgroundColor: theme.colors.background.main,
-            borderTopColor: theme.colors.background.main,
+            borderTopColor: theme.colors.background.main2,
           },
         }}
       >

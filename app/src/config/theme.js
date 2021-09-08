@@ -1,4 +1,5 @@
 import { extendTheme, themeTools } from "native-base";
+import { Animated } from "react-native";
 export const theme = extendTheme({
   colors: {
     primary: {
@@ -27,6 +28,7 @@ export const theme = extendTheme({
     },
     background: {
       main: "#404040",
+      main2: "#4a4a4a",
       darker: "#282626",
       lighter: "#595959",
     },
@@ -63,3 +65,40 @@ export const theme = extendTheme({
     initialColorMode: "dark",
   },
 });
+export const navigatorOptions = {
+  header: () => null,
+  cardStyle: { backgroundColor: "transparent" },
+  cardStyleInterpolator: ({ current, next, inverted, layouts: { screen } }) => {
+    const progress = Animated.add(
+      current.progress.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 1],
+        extrapolate: "clamp",
+      }),
+      next
+        ? next.progress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 1],
+            extrapolate: "clamp",
+          })
+        : 0
+    );
+
+    return {
+      cardStyle: {
+        transform: [
+          {
+            translateX: Animated.multiply(
+              progress.interpolate({
+                inputRange: [0, 1, 2],
+                outputRange: [screen.width, 0, screen.width * -0.3],
+                extrapolate: "clamp",
+              }),
+              inverted
+            ),
+          },
+        ],
+      },
+    };
+  },
+};
