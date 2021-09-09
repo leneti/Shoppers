@@ -28,7 +28,8 @@ export const theme = extendTheme({
     },
     background: {
       main: "#404040",
-      main2: "#4a4a4a",
+      mainl: "#4a4a4a",
+      maind: "#363636",
       darker: "#282626",
       lighter: "#595959",
     },
