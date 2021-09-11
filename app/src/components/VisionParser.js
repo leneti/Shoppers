@@ -28,6 +28,9 @@ const SKIPWORDS = [
   "prepaid",
   "a0000000031010",
   "***16872",
+  "dun",
+  "-city",
+  "centre",
 ];
 const STOPWORDS = ["tid:", "sale"];
 
@@ -46,7 +49,7 @@ function isNumber(mNum) {
  */
 function isDecimal(mNum) {
   const f = parseFloat(mNum);
-  return isNumber(mNum) && Math.round(f) !== f;
+  return isNumber(mNum) && (Math.round(f) !== f || /[.00]/.test(mNum));
 }
 
 /**
@@ -55,7 +58,7 @@ function isDecimal(mNum) {
  */
 function isInteger(mNum) {
   const f = parseFloat(mNum);
-  return isNumber(mNum) && Math.round(f) === f;
+  return isNumber(mNum) && Math.round(f) === f && !/[.]/.test(mNum);
 }
 
 /**
@@ -112,11 +115,11 @@ function checkMarket(str) {
  */
 function checkAnnotationType(str) {
   if (str[str.length - 1] === ",") return "hanging";
-  if (checkPrice(str)) return "number";
   if (parseDate(str)) return "date";
   if (parseTime(str)) return "time";
-  if (isInteger(str)) return "int";
   if (checkMarket(str)) return "market";
+  if (checkPrice(str)) return "number";
+  if (isInteger(str)) return "int";
   return "text";
 }
 
@@ -149,8 +152,8 @@ function getMinMaxes(vertices) {
 
 /**
  * Parses the Google Cloud Vision API's response.
- * @param {string[]} textAnnotations googleResponseJson.responses[0].textAnnotations
- * @returns An object of the dates, markets and items bought
+ * @param {{locale: string, description: string, boundingPoly: {vertices: {x: number, y: number}[]}}[]} textAnnotations googleResponseJson.responses[0].textAnnotations
+ * @returns {{date: string, market: string, items: {discount?: string, name: string, price: string}[], time: string, total: number}} An object of the dates, markets and items bought
  */
 export function parseResponse(
   textAnnotations,
@@ -170,7 +173,26 @@ export function parseResponse(
     g_xmax = minmaxes.xmax,
     g_ymin = minmaxes.ymin,
     g_ymax = minmaxes.ymax,
-    sortedAnnotations = textAnnotations.slice(1),
+    sortedAnnotations = textAnnotations.slice(1).sort((a, b) => {
+      const aMinMax = getMinMaxes(a.boundingPoly.vertices);
+      const bMinMax = getMinMaxes(b.boundingPoly.vertices);
+      const tLineOverlap =
+        Math.min(bMinMax.ymax - aMinMax.ymin, aMinMax.ymax - bMinMax.ymin) /
+        Math.max(bMinMax.ymax - bMinMax.ymin, aMinMax.ymax - aMinMax.ymin);
+
+      if (tLineOverlap < 0.4)
+        return aMinMax.ymin < bMinMax.ymin
+          ? -1
+          : aMinMax.ymin > bMinMax.ymin
+          ? 1
+          : 0;
+
+      return aMinMax.xmin < bMinMax.xmin
+        ? -1
+        : aMinMax.xmin > bMinMax.xmin
+        ? 1
+        : 0;
+    }),
     currentName = "",
     currentPrice = null,
     skipThis = false,
@@ -193,8 +215,8 @@ export function parseResponse(
   /* #endregion */
 
   for (let i = 0; i < sortedAnnotations.length; i++) {
-    if (seenIndexes.includes(i)) continue;
-    // if (i > 2) shortened = true;
+    if (seenIndexes.includes(i) || seenPrices.includes(i)) continue;
+    // if (i > 10) shortened = true;
     annotation = sortedAnnotations[i];
     skipThis = false;
 
@@ -238,7 +260,7 @@ export function parseResponse(
       time = parseTime(annotation.description);
     } else if (type === "market") {
       market = checkMarket(annotation.description);
-    } else if (type === "text" || type === "int") {
+    } /* if (type === "text" || type === "int") */ else {
       minmaxes = getMinMaxes(annotation.boundingPoly.vertices);
       let xmin = minmaxes.xmin,
         xmax = minmaxes.xmax,
@@ -297,7 +319,7 @@ export function parseResponse(
         lineOverlap =
           Math.min(cymax - ymin, ymax - cymin) /
           Math.max(cymax - cymin, ymax - ymin);
-        if (lineOverlap < 0.5) {
+        if (lineOverlap < 0.4) {
           if (debug && !shortened)
             console.log(`  ${cAnno.description} (overlap too small)`);
           continue;
@@ -337,6 +359,12 @@ export function parseResponse(
             continue;
           }
 
+          if (currentPrice) {
+            if (debug && !shortened)
+              console.log(`  ${cDescription} (maybe price)`);
+            continue;
+          }
+
           usedPr.push(j);
           currentPrice = checkPrice(cDescription);
           currentPriceY = cymin;
@@ -361,7 +389,7 @@ export function parseResponse(
           }
           usedIdx.push(j);
           parsedToY = Math.max(parsedToY, (cymax + cymin) / 2);
-          currentName += /[A-Z0-9x£]/.test(cDescription.charAt(0))
+          currentName += /[A-Z0-9x£@]/.test(cDescription.charAt(0))
             ? " " + cDescription
             : cDescription;
           if (debug) console.log(`  ${currentName} (current name)`);
@@ -422,24 +450,55 @@ export function parseResponse(
           if (debug) console.log(`  ${currentName} (current name)`);
         }
       }
-
       if (currentPrice) {
         seenPrices.push(...usedPr);
         seenIndexes.push(...usedIdx);
         if (debug && !shortened) console.log(`Seen indices: ${seenIndexes}`);
         skipThis = !checkItemName(currentName);
         if (!skipThis) {
-          items.push({
-            name: currentName,
-            price: currentPrice,
-          });
-          if (debug) console.log(`Item: ${currentName}   ${currentPrice}`);
+          if (currentPrice.startsWith("-")) {
+            const lastItem = items.pop();
+            items.push({ ...lastItem, discount: currentPrice });
+            if (debug)
+              console.log(
+                "\u001b[92m" +
+                  `Updated ${lastItem.name}   ${lastItem.price}   Discount${currentPrice}` +
+                  "\u001b[0m"
+              );
+          } else {
+            items.push({
+              name: currentName,
+              price: currentPrice,
+            });
+            if (debug)
+              console.log(
+                "\u001b[32m" +
+                  `Item: ${currentName}   ${currentPrice}` +
+                  "\u001b[0m"
+              );
+          }
           currentName = "";
           currentPrice = null;
         }
+      } else if (currentName.includes("@")) {
+        seenIndexes.push(...usedIdx);
+        const lastItem = items.pop();
+        lastItem.name += `\n${currentName}`;
+        items.push(lastItem);
+        currentName = "";
+        currentPrice = null;
       }
     }
   }
 
-  return { date, market, items, time };
+  return {
+    date,
+    market,
+    items,
+    time,
+    total: items.reduce(
+      (a, c) => a + parseFloat(c.price) + parseFloat(c.discount ?? 0),
+      0
+    ),
+  };
 }

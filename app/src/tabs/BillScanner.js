@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createStackNavigator } from "@react-navigation/stack";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AwesomeButton from "@umangmaurya/react-native-really-awesome-button";
 import {
   widthPercentageToDP as wp,
@@ -39,7 +39,7 @@ const MONTHS = [
   "Nov",
   "Dec",
 ];
-const TESTMODE = true;
+const TESTMODE = false;
 
 LogBox.ignoreLogs(["Setting a timer"]);
 
@@ -49,7 +49,6 @@ function BillScanner({ navigation }) {
   const [image, setImage] = useState(null);
   const [progressText, setProgressText] = useState("");
   const [pathToSave, setPathToSave] = useState(null);
-  const [savedUrlAndPath, setSavedUrlAndPath] = useState(null);
 
   function handlePickedImage(pickerResult) {
     if (!pickerResult.cancelled) {
@@ -57,7 +56,6 @@ function BillScanner({ navigation }) {
       setAnalyse(false);
       setGoogleResponse(null);
       setPathToSave(null);
-      setSavedUrlAndPath(null);
     }
   }
 
@@ -65,19 +63,13 @@ function BillScanner({ navigation }) {
     if (!pathToSave) return;
     if (TESTMODE) {
       navigation.navigate("BillSplitter", {
-        googleResponse: {
-          ...googleResponse,
-          total: googleResponse.items.reduce(
-            (a, c) => a + parseFloat(c.price),
-            0
-          ),
-        },
+        googleResponse,
+        header: pathToSave,
       });
       setTimeout(() => {
         setImage(null);
         setAnalyse(false);
         setPathToSave(null);
-        setSavedUrlAndPath(null);
         setGoogleResponse(null);
       }, 1000);
       return;
@@ -85,26 +77,20 @@ function BillScanner({ navigation }) {
 
     (async function uploadToFirestore() {
       try {
-        const total = googleResponse.items.reduce(
-          (a, c) => a + parseFloat(c.price),
-          0
-        );
         await firebase
           .firestore()
           .collection("bills")
           .doc(pathToSave)
           .set({
             ...googleResponse,
-            total: total.toFixed(2),
+            total: googleResponse.total.toFixed(2),
           });
         console.log(`${pathToSave} saved to Firestore`);
+        setImage(null);
         navigation.navigate("BillSplitter", {
-          googleResponse: {
-            ...googleResponse,
-            total,
-          },
+          googleResponse,
+          header: pathToSave,
         });
-        // setPathToSave(null);
       } catch (e) {
         console.error("Error adding document: ", e);
       }
@@ -113,108 +99,169 @@ function BillScanner({ navigation }) {
 
   useEffect(() => {
     if (!googleResponse) return;
-    if (!googleResponse.date || !googleResponse.time || !googleResponse.market)
-      return;
-    const newPath = `${googleResponse.market}--${
-      MONTHS[parseInt(googleResponse.date.substr(3, 2)) - 1]
-    }-${googleResponse.date.substr(0, 2)}--${googleResponse.time.substr(0, 5)}`;
+    const { date, time, market } = googleResponse;
+    if (!date || !time || !market) return;
+    const newPath = `${market}--${
+      MONTHS[parseInt(date.substr(3, 2)) - 1]
+    }-${date.substr(0, 2)}--${time.substr(0, 5)}`;
     setPathToSave(newPath);
+    firebase
+      .storage()
+      .ref(newPath)
+      .getDownloadURL()
+      .then(() =>
+        console.log(
+          "\u001b[33m" + `File already exists: ${newPath}` + "\u001b[0m"
+        )
+      )
+      .catch(() => {
+        uploadImage(image.uri, newPath)
+          .then(({ path }) => console.log(`${path} uploaded`))
+          .catch(console.warn);
+      });
   }, [googleResponse]);
 
   async function submitToGoogle() {
     try {
       if (TESTMODE) {
         const testResponse = {
-          date: "18/08/21",
+          date: "04/09/21",
           items: [
             {
-              name: "Froz Pizza Hawaii",
-              price: "0.99",
-            },
-            {
-              name: "Froz Margherit Pizza",
-              price: "0.99",
-            },
-            {
-              name: "Milk Chocolate 2 x £0.45",
-              price: "0.90",
+              discount: "-0.63",
+              name: "Loose Kiwi 6× £0.22",
+              price: "1.32",
             },
             {
               name: "Vanilla Yoghurt",
               price: "1.99",
             },
             {
+              name: "Froz PizzaDBIPepp2Pk",
+              price: "0.99",
+            },
+            {
+              name: "Froz Pizza Hawaii",
+              price: "0.99",
+            },
+            {
+              name: "Breaded Katsu Kiev",
+              price: "1.49",
+            },
+            {
+              name: "Scot SemSkimMilk 2PT",
+              price: "0.80",
+            },
+            {
+              name: "Chicken Legs 1kg",
+              price: "1.69",
+            },
+            {
+              name: "Tom&Basil PastaSauce",
+              price: "0.49",
+            },
+            {
               name: "Cornichons Classic",
               price: "0.72",
+            },
+            {
+              name: "Granulated Sugar",
+              price: "0.65",
+            },
+            {
+              name: "ChorizoSartaûriginal",
+              price: "1.49",
+            },
+            {
+              name: "Sunflower Of1",
+              price: "1.09",
+            },
+            {
+              name: "Yellow Split Peas",
+              price: "0.49",
+            },
+            {
+              name: "New Potatoes",
+              price: "0.99",
+            },
+            {
+              name: "Loose Carrots\n0.512kg @ 0.40/kg",
+              price: "0.20",
+            },
+            {
+              name: "Classic Ice Almond",
+              price: "1.79",
+            },
+            {
+              name: "Fat Free Vanilla Yog",
+              price: "0.75",
+            },
+            {
+              name: "Toiletrimlemon",
+              price: "0.99",
             },
             {
               name: "Mild Grated Cheddar",
               price: "2.49",
             },
             {
-              name: "Diced ChickBrea 400g",
-              price: "2.35",
-            },
-            {
-              name: "Peaches",
-              price: "0.95",
-            },
-            {
-              name: "Italian Mozzarella 2 x £0.45",
-              price: "0.90",
-            },
-            {
-              name: "Sweet Popcorn",
-              price: "1.09",
+              name: "Italian Moz2arella",
+              price: "0.45",
             },
             {
               name: "Scotch Beef Mince10%",
               price: "2.29",
             },
             {
-              name: "Bananas 5 Pack",
-              price: "0.69",
+              name: "Milk Chocolate 2 x £0.45",
+              price: "0.90",
             },
             {
-              name: "Lasagne Sheets",
+              name: "Sweet&Salty Popcorn",
+              price: "1.09",
+            },
+            {
+              name: "Cocoa Orange Bars",
               price: "0.39",
             },
             {
-              name: "Italian Passata",
-              price: "0.32",
-            },
-            {
-              name: "Simply Penne",
-              price: "0.29",
-            },
-            {
-              name: "Tomatoes",
-              price: "0.71",
+              name: "Toffee Popcorn",
+              price: "1.09",
             },
             {
               name: "Cucumber",
               price: "0.43",
             },
             {
-              name: "Tomato Puree",
-              price: "0.27",
+              name: "Mango",
+              price: "0.59",
             },
             {
-              name: "10 Large Eggs",
-              price: "1.09",
+              name: "Bananas Loose\n1.374kg @ 0.73/kg",
+              price: "1.00",
+            },
+            {
+              name: "Red Gala Apples",
+              price: "0.89",
+            },
+            {
+              name: "Medium Avocado",
+              price: "0.49",
+            },
+            {
+              name: "Pineapple",
+              price: "0.69",
             },
           ],
           market: "LIDL",
-          time: "19:10:39",
+          time: "15:04:33",
+          total: 31.709999999999994,
         };
         setGoogleResponse(testResponse);
         return;
       }
-
-      const { url, path } = googleResponse
-        ? savedUrlAndPath
-        : await uploadImage(image.uri);
-      if (!googleResponse) setSavedUrlAndPath({ url, path });
+      const { url, path } = await uploadImage(image.uri);
+      console.log(`${path} uploaded`);
       setProgressText("Parsing the image...");
       let body = JSON.stringify({
         requests: [
@@ -251,10 +298,22 @@ function BillScanner({ navigation }) {
       const parsedResponse = parseResponse(data);
       console.log(parsedResponse);
       setGoogleResponse(parsedResponse);
+      deleteFromStorage(path)
+        .then(() => console.log(`${path} deleted`))
+        .catch(console.warn);
     } catch (error) {
       console.warn(error);
     } finally {
       setProgressText("");
+    }
+  }
+
+  async function deleteFromStorage(path) {
+    try {
+      return firebase.storage().ref().child(path).delete();
+    } catch (message) {
+      console.warn(message);
+      return null;
     }
   }
 
@@ -352,7 +411,7 @@ function BillScanner({ navigation }) {
           <>
             <AwesomeButton
               progress
-              progressLoadingTime={5000}
+              progressLoadingTime={6000}
               onPress={async (next) => {
                 setProgressText("Uploading image to Firebase...");
                 await submitToGoogle();
@@ -387,7 +446,7 @@ function BillScanner({ navigation }) {
 
 function BillSplitter({
   route: {
-    params: { googleResponse },
+    params: { googleResponse, header },
   },
   navigation,
 }) {
@@ -434,9 +493,14 @@ function BillSplitter({
             _dark={{ color: "white" }}
           />
         </TouchableOpacity>
-        <Text fontSize="2xl" fontWeight="bold">
-          Split the bill
-        </Text>
+        <Box alignItems="center">
+          <Text fontSize="2xl" fontWeight="bold">
+            Split the bill
+          </Text>
+          <Text fontSize="sm" color="gray.400">
+            {header}
+          </Text>
+        </Box>
         <Icon
           size="lg"
           as={<Ionicons name="chevron-back" />}
@@ -576,7 +640,26 @@ function BillSplitter({
         >
           <Text color="primary.400">{item.name}</Text>
           <Box flexDirection="row" alignItems="center">
-            <Text color="primary.500">£{item.price}</Text>
+            {!item.discount ? (
+              <Text color="primary.500">£{item.price}</Text>
+            ) : (
+              <Box alignItems="center" mb={4}>
+                <Text
+                  fontSize={14}
+                  textDecorationLine="line-through"
+                  color="primary.700"
+                >
+                  £{item.price}
+                </Text>
+                <Text color="primary.500">
+                  £
+                  {(parseFloat(item.price) + parseFloat(item.discount)).toFixed(
+                    2
+                  )}
+                </Text>
+              </Box>
+            )}
+
             <Icon
               ml={2}
               size="sm"
@@ -646,7 +729,7 @@ function BillSplitter({
               />
             </HStack>
           </TouchableOpacity>
-          {item.name.includes("2 x") && (
+          {item.name.includes(" x ") && (
             <>
               <Divider />
               <TouchableOpacity onPress={() => splitItems(item, index, list)}>
@@ -675,6 +758,13 @@ function BillSplitter({
     if (list === LISTS.EMILIJA && !emilija.length) return null;
     if (list === LISTS.DOM && !dom.length) return null;
     if (list === LISTS.COMMON && !common.length) return null;
+    const total = (arr) =>
+      arr
+        .reduce(
+          (a, c) => a + parseFloat(c.price) + parseFloat(c.discount ?? 0),
+          0
+        )
+        .toFixed(2);
     return (
       <Box
         h={maxListHeightPercent}
@@ -738,10 +828,10 @@ function BillSplitter({
           <Text fontSize="xl" fontWeight="bold" color="primary.400">
             £
             {list === LISTS.COMMON
-              ? common.reduce((a, c) => a + parseFloat(c.price), 0).toFixed(2)
+              ? total(common)
               : list === LISTS.EMILIJA
-              ? emilija.reduce((a, c) => a + parseFloat(c.price), 0).toFixed(2)
-              : dom.reduce((a, c) => a + parseFloat(c.price), 0).toFixed(2)}
+              ? total(emilija)
+              : total(dom)}
           </Text>
         </Box>
       </Box>
@@ -838,9 +928,14 @@ function BillCalculator({
             _dark={{ color: "white" }}
           />
         </TouchableOpacity>
-        <Text fontSize="2xl" fontWeight="bold">
-          Totals
-        </Text>
+        <Box alignItems="center">
+          <Text fontSize="2xl" fontWeight="bold">
+            Total: £{totals.full.toFixed(2)}
+          </Text>
+          <Text fontSize="sm" color="gray.400">
+            Split 60/40
+          </Text>
+        </Box>
         <Icon
           size="lg"
           as={<Ionicons name="chevron-back" />}
@@ -892,7 +987,6 @@ function BillCalculator({
         pt={10}
         alignItems="center"
       >
-        <Total name="full" />
         <Total name="dom" />
         <Total name="em" />
       </Box>

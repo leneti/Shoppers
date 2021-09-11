@@ -3,24 +3,24 @@ import firebase from "firebase";
 /**
  * When provided with an image uri, converts it to a Blob and uploads the image to Google's Firebase Storage.
  * @param {string} imageUri The uri of the image to be converted to a blob and uploaded.
- * @returns A Promise resolving to the URL the image is available at after completing the upload and the path it is saved at.
+ * @param {string} path (optional) The path to save the image to.
+ * @returns {Promise<{url: string, path: string}>}A Promise resolving to the URL the image is available at after completing the upload and the path it is saved at.
  */
-export const uploadImage = async (imageUri) => {
+export const uploadImage = async (imageUri, path = null) => {
   try {
     if (imageUri === "")
       throw new Error(
         `Image not provided, rejecting empty string. Expeted {string}, got ${typeof imageUri}: ${imageUri}`
       );
-    const storagePath = getPath(imageUri);
-    const storageRef = firebase.storage().ref().child(storagePath);
+    const storagePath = path ?? getPath(imageUri);
+    const storageRef = firebase.storage().ref(storagePath);
     const blob = await uriToBlob(imageUri);
     const snapshot = await storageRef.put(blob);
     const url = await snapshot.ref.getDownloadURL();
-    console.log(`Image uploaded to ${url}`);
     blob.close();
     return { url, path: storagePath };
   } catch (error) {
-    console.error(error);
+    return error;
   }
 };
 
