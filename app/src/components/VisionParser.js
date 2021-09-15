@@ -20,6 +20,7 @@ const SKIPWORDS = [
   "total",
   "тоtal",
   "toial",
+  "t0tal",
   "a",
   "b",
   "mid:",
@@ -34,31 +35,14 @@ const SKIPWORDS = [
 ];
 const STOPWORDS = ["tid:", "sale"];
 
-/* #region  Helper Functions */
 /**
- * @param {string} mNum
- * @returns `true` if the input string parses to a number, and `false` otherwise
- */
-function isNumber(mNum) {
-  return !/[a-zA-Z]+/.test(mNum) && !isNaN(parseFloat(mNum));
-}
-
-/**
- * @param {string} mNum
- * @returns `true` if the input string parses to a floating point number, and `false` otherwise
- */
-function isDecimal(mNum) {
-  const f = parseFloat(mNum);
-  return isNumber(mNum) && (Math.round(f) !== f || /[.00]/.test(mNum));
-}
-
-/**
- * @param {string} mNum
+ * @param {string} val
  * @returns `true` if the input string parses to an integer, and `false` otherwise
  */
-function isInteger(mNum) {
-  const f = parseFloat(mNum);
-  return isNumber(mNum) && Math.round(f) === f && !/[.]/.test(mNum);
+function isInteger(val) {
+  if (!/^-?\d+$/.test(val)) return false;
+  let intVal = parseInt(val);
+  return parseFloat(val) === intVal && !isNaN(intVal);
 }
 
 /**
@@ -87,7 +71,7 @@ function parseTime(timeStr) {
 function checkPrice(str) {
   let pr = str.includes(" ") ? str.split(" ")[0] : str;
   pr.replace("A", "").replace("B", "");
-  return isDecimal(pr) ? pr : null;
+  return /^[£-]*\d+[.]\d{2}$/.test(pr) ? pr : null;
 }
 
 /**

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createStackNavigator } from "@react-navigation/stack";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import AwesomeButton from "@umangmaurya/react-native-really-awesome-button";
 import {
   widthPercentageToDP as wp,
@@ -40,6 +40,7 @@ const MONTHS = [
   "Dec",
 ];
 const TESTMODE = false;
+let firestorePath = "";
 
 LogBox.ignoreLogs(["Setting a timer"]);
 
@@ -48,54 +49,15 @@ function BillScanner({ navigation }) {
   const [analyse, setAnalyse] = useState(false);
   const [image, setImage] = useState(null);
   const [progressText, setProgressText] = useState("");
-  const [pathToSave, setPathToSave] = useState(null);
 
   function handlePickedImage(pickerResult) {
     if (!pickerResult.cancelled) {
       setImage(pickerResult);
       setAnalyse(false);
       setGoogleResponse(null);
-      setPathToSave(null);
+      firestorePath = "";
     }
   }
-
-  useEffect(() => {
-    if (!pathToSave) return;
-    if (TESTMODE) {
-      navigation.navigate("BillSplitter", {
-        googleResponse,
-        header: pathToSave,
-      });
-      setTimeout(() => {
-        setImage(null);
-        setAnalyse(false);
-        setPathToSave(null);
-        setGoogleResponse(null);
-      }, 1000);
-      return;
-    }
-
-    (async function uploadToFirestore() {
-      try {
-        await firebase
-          .firestore()
-          .collection("bills")
-          .doc(pathToSave)
-          .set({
-            ...googleResponse,
-            total: googleResponse.total.toFixed(2),
-          });
-        console.log(`${pathToSave} saved to Firestore`);
-        setImage(null);
-        navigation.navigate("BillSplitter", {
-          googleResponse,
-          header: pathToSave,
-        });
-      } catch (e) {
-        console.error("Error adding document: ", e);
-      }
-    })();
-  }, [pathToSave]);
 
   useEffect(() => {
     if (!googleResponse) return;
@@ -104,7 +66,7 @@ function BillScanner({ navigation }) {
     const newPath = `${market}--${
       MONTHS[parseInt(date.substr(3, 2)) - 1]
     }-${date.substr(0, 2)}--${time.substr(0, 5)}`;
-    setPathToSave(newPath);
+    firestorePath = newPath;
     firebase
       .storage()
       .ref(newPath)
@@ -119,6 +81,23 @@ function BillScanner({ navigation }) {
           .then(({ path }) => console.log(`${path} uploaded`))
           .catch(console.warn);
       });
+
+    (async function uploadToFirestore() {
+      try {
+        await firebase
+          .firestore()
+          .collection("bills")
+          .doc(firestorePath)
+          .set(googleResponse);
+        console.log(`${firestorePath} saved to Firestore`);
+        setImage(null);
+        navigation.navigate("BillSplitter", {
+          googleResponse,
+        });
+      } catch (e) {
+        console.error("Error adding document: ", e);
+      }
+    })();
   }, [googleResponse]);
 
   async function submitToGoogle() {
@@ -446,7 +425,7 @@ function BillScanner({ navigation }) {
 
 function BillSplitter({
   route: {
-    params: { googleResponse, header },
+    params: { googleResponse },
   },
   navigation,
 }) {
@@ -498,7 +477,7 @@ function BillSplitter({
             Split the bill
           </Text>
           <Text fontSize="sm" color="gray.400">
-            {header}
+            {firestorePath}
           </Text>
         </Box>
         <Icon
@@ -633,7 +612,7 @@ function BillSplitter({
           pr={3}
           py={2}
           h={hp(6)}
-          w={wp(60)}
+          w={wp(65)}
           rounded="lg"
           my={1}
           bg="background.lighter"
@@ -788,7 +767,6 @@ function BillSplitter({
         <Box h={maxListHeightPercent - 2 * headerAndFooterHeight}>
           <FlatList
             contentContainerStyle={{
-              // backgroundColor: theme.colors.background.main,
               borderRadius: 15,
             }}
             showsVerticalScrollIndicator={false}
@@ -853,6 +831,33 @@ function BillSplitter({
     return totals;
   }
 
+  function updateFirestoreDoc(totals) {
+    firebase
+      .firestore()
+      .collection("bills")
+      .doc(firestorePath)
+      .set(
+        {
+          emilija,
+          dom,
+          common,
+          totals,
+        },
+        { merge: true }
+      )
+      .then(() => console.log(`${firestorePath} updated with the lists`))
+      .catch(console.error);
+  }
+
+  function handleSplitting(next) {
+    const totals = calculateTotals();
+    updateFirestoreDoc(totals);
+    setTimeout(() => {
+      next();
+      navigation.navigate("BillCalculator", { totals });
+    }, 1000);
+  }
+
   return (
     <>
       <AppBar />
@@ -872,13 +877,7 @@ function BillSplitter({
           <AwesomeButton
             progress
             progressLoadingTime={1000}
-            onPress={(next) => {
-              const totals = calculateTotals();
-              setTimeout(() => {
-                next();
-                navigation.navigate("BillCalculator", { totals });
-              }, 1000);
-            }}
+            onPress={handleSplitting}
             width={wp(50)}
             height={50}
             borderRadius={25}
