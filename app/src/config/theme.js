@@ -30,15 +30,24 @@ export const theme = extendTheme({
       main: "#404040",
       mainl: "#4a4a4a",
       maind: "#363636",
-      darker: "#282626",
+      darker: "#262626",
       lighter: "#595959",
+    },
+    backgroundLight: {
+      main: "#F6F6F6",
+      mainl: "#FFF",
+      maind: "#ECECEC",
+      darker: "#DCDCDC",
+      lighter: "#FFF",
+      dark: "#6F6F6F",
+      orange: "#F96501",
     },
   },
   components: {
     Text: {
       baseStyle: (props) => {
         return {
-          color: themeTools.mode("primary.600", "white")(props),
+          color: themeTools.mode("backgroundLight.dark", "white")(props),
         };
       },
       defaultProps: { size: "md" },
@@ -63,7 +72,8 @@ export const theme = extendTheme({
     },
   },
   config: {
-    initialColorMode: "dark",
+    // initialColorMode: "light",
+    // useSystemColorMode: true,
   },
 });
 export const navigatorOptions = {

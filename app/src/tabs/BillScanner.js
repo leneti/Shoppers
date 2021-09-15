@@ -23,7 +23,11 @@ import {
   Popover,
   Pressable,
   Divider,
+  useColorModeValue,
+  useColorMode,
 } from "native-base";
+import { AppIcon } from "../components/AppIcon";
+import BottomText from "../components/BottomText";
 
 const MONTHS = [
   "Jan",
@@ -45,6 +49,8 @@ let firestorePath = "";
 LogBox.ignoreLogs(["Setting a timer"]);
 
 function BillScanner({ navigation }) {
+  const background = useColorModeValue("backgroundLight", "background");
+  const { colorMode } = useColorMode();
   const [googleResponse, setGoogleResponse] = useState(null);
   const [analyse, setAnalyse] = useState(false);
   const [image, setImage] = useState(null);
@@ -94,6 +100,7 @@ function BillScanner({ navigation }) {
         navigation.navigate("BillSplitter", {
           googleResponse,
         });
+        setTimeout(() => setGoogleResponse(null), 1000);
       } catch (e) {
         console.error("Error adding document: ", e);
       }
@@ -296,14 +303,73 @@ function BillScanner({ navigation }) {
     }
   }
 
+  const SelectedImage = () => {
+    return !image ? null : (
+      <Image
+        source={{ uri: image.uri }}
+        alt="Image to analyse text from"
+        w={wp(75)}
+        h={(image.height * wp(75)) / image.width}
+        mt={10}
+        borderRadius={20}
+        borderWidth={2}
+        _light={{
+          borderColor: "backgroundLight.dark",
+        }}
+        _dark={{ borderColor: "primary.600" }}
+        onLoad={() => setAnalyse(true)}
+      />
+    );
+  };
+
+  const AnalyseButton = () => {
+    return analyse ? (
+      <>
+        <AwesomeButton
+          progress
+          progressLoadingTime={6000}
+          onPress={async (next) => {
+            setProgressText("Uploading image to Firebase...");
+            await submitToGoogle();
+            next();
+          }}
+          width={googleResponse ? wp(30) : wp(25)}
+          height={50}
+          borderRadius={25}
+          borderWidth={1}
+          borderColor={
+            colorMode === "dark"
+              ? theme.colors.primary[500]
+              : theme.colors.backgroundLight.dark
+          }
+          backgroundColor={theme.colors[background].main}
+          backgroundDarker={theme.colors[background].darker}
+          raiseLevel={3}
+          style={{ marginTop: 20 }}
+        >
+          <Ionicons
+            name="analytics"
+            size={24}
+            color={theme.colors.primary[500]}
+          />
+          <Text _dark={{ color: "primary.400" }} ml={2}>
+            Analyse
+          </Text>
+        </AwesomeButton>
+        <Text>{progressText}</Text>
+      </>
+    ) : null;
+  };
+
   return (
     <Box
-      _light={{ bg: "white" }}
+      _light={{ bg: "backgroundLight.main" }}
       _dark={{ bg: "background.main" }}
       flex={1}
       safeAreaTop
       pt={10}
       alignItems="center"
+      justifyContent="space-between"
     >
       <Box
         alignItems="center"
@@ -311,8 +377,11 @@ function BillScanner({ navigation }) {
         p={7}
         borderRadius={20}
         borderWidth={2}
-        borderColor="primary.600"
-        bg="background.main"
+        _light={{
+          bg: "backgroundLight.main",
+          borderColor: "backgroundLight.dark",
+        }}
+        _dark={{ bg: "background.main", borderColor: "primary.600" }}
         zIndex={100}
       >
         <Text numberOfLines={2} textAlign="center" size="lg" mb={5}>
@@ -329,9 +398,13 @@ function BillScanner({ navigation }) {
             height={50}
             borderRadius={25}
             borderWidth={1}
-            borderColor={theme.colors.primary[500]}
-            backgroundColor={theme.colors.background.main}
-            backgroundDarker={theme.colors.background.darker}
+            borderColor={
+              colorMode === "dark"
+                ? theme.colors.primary[500]
+                : theme.colors.backgroundLight.dark
+            }
+            backgroundColor={theme.colors[background].main}
+            backgroundDarker={theme.colors[background].darker}
             raiseLevel={3}
           >
             <Ionicons
@@ -339,7 +412,7 @@ function BillScanner({ navigation }) {
               size={24}
               color={theme.colors.primary[500]}
             />
-            <Text color={theme.colors.primary[400]} ml={2}>
+            <Text _dark={{ color: "primary.400" }} ml={2}>
               Scan
             </Text>
           </AwesomeButton>
@@ -353,9 +426,13 @@ function BillScanner({ navigation }) {
             height={50}
             borderRadius={25}
             borderWidth={1}
-            borderColor={theme.colors.primary[500]}
-            backgroundColor={theme.colors.background.main}
-            backgroundDarker={theme.colors.background.darker}
+            borderColor={
+              colorMode === "dark"
+                ? theme.colors.primary[500]
+                : theme.colors.backgroundLight.dark
+            }
+            backgroundColor={theme.colors[background].main}
+            backgroundDarker={theme.colors[background].darker}
             raiseLevel={3}
           >
             <Ionicons
@@ -363,61 +440,20 @@ function BillScanner({ navigation }) {
               size={24}
               color={theme.colors.primary[500]}
             />
-            <Text color={theme.colors.primary[400]} ml={2}>
+            <Text _dark={{ color: "primary.400" }} ml={2}>
               Pick
             </Text>
           </AwesomeButton>
         </Box>
       </Box>
+      {/* <AppIcon my={20} /> */}
+      <BottomText />
       <ScrollView
         contentContainerStyle={{ alignItems: "center", paddingBottom: hp(7.5) }}
         showsVerticalScrollIndicator={false}
       >
-        {image && (
-          <Image
-            source={{ uri: image.uri }}
-            alt="Image to analyse text from"
-            w={wp(75)}
-            h={(image.height * wp(75)) / image.width}
-            mt={10}
-            borderRadius={20}
-            borderWidth={2}
-            borderColor="primary.600"
-            onLoad={() => setAnalyse(true)}
-          />
-        )}
-        {analyse && !googleResponse && (
-          <>
-            <AwesomeButton
-              progress
-              progressLoadingTime={6000}
-              onPress={async (next) => {
-                setProgressText("Uploading image to Firebase...");
-                await submitToGoogle();
-                next();
-              }}
-              width={googleResponse ? wp(30) : wp(25)}
-              height={50}
-              borderRadius={25}
-              borderWidth={1}
-              borderColor={theme.colors.primary[500]}
-              backgroundColor={theme.colors.background.main}
-              backgroundDarker={theme.colors.background.main}
-              raiseLevel={3}
-              style={{ marginTop: 20 }}
-            >
-              <Ionicons
-                name="analytics"
-                size={24}
-                color={theme.colors.primary[500]}
-              />
-              <Text color="primary.400" ml={2}>
-                Analyse
-              </Text>
-            </AwesomeButton>
-            <Text>{progressText}</Text>
-          </>
-        )}
+        <SelectedImage />
+        <AnalyseButton />
       </ScrollView>
     </Box>
   );
@@ -429,6 +465,8 @@ function BillSplitter({
   },
   navigation,
 }) {
+  const background = useColorModeValue("backgroundLight", "background");
+  const { colorMode } = useColorMode();
   const [common, setCommon] = useState(googleResponse.items);
   const [emilija, setEmilija] = useState([]);
   const [dom, setDom] = useState([]);
@@ -459,7 +497,7 @@ function BillSplitter({
         alignItems="center"
         justifyContent="space-between"
         safeAreaTop
-        _light={{ bg: "white" }}
+        _light={{ bg: "backgroundLight.main" }}
         _dark={{ bg: "background.main" }}
         px={3}
         pt={3}
@@ -469,7 +507,7 @@ function BillSplitter({
             size="lg"
             as={<Ionicons name="chevron-back" />}
             _light={{ color: "primary.600" }}
-            _dark={{ color: "white" }}
+            _dark={{ color: "backgroundLight.main" }}
           />
         </TouchableOpacity>
         <Box alignItems="center">
@@ -483,7 +521,7 @@ function BillSplitter({
         <Icon
           size="lg"
           as={<Ionicons name="chevron-back" />}
-          _light={{ color: "white" }}
+          _light={{ color: "backgroundLight.main" }}
           _dark={{ color: "background.main" }}
         />
       </HStack>
@@ -615,22 +653,32 @@ function BillSplitter({
           w={wp(65)}
           rounded="lg"
           my={1}
-          bg="background.lighter"
+          _dark={{ bg: "background.lighter" }}
+          _light={{ bg: "backgroundLight.darker" }}
         >
-          <Text color="primary.400">{item.name}</Text>
+          <Text _dark={{ color: "primary.400" }}>{item.name}</Text>
           <Box flexDirection="row" alignItems="center">
             {!item.discount ? (
-              <Text color="primary.500">£{item.price}</Text>
+              <Text
+                _dark={{ color: "primary.500" }}
+                _light={{ color: "primary.600" }}
+              >
+                £{item.price}
+              </Text>
             ) : (
               <Box alignItems="center" mb={4}>
                 <Text
                   fontSize={14}
                   textDecorationLine="line-through"
-                  color="primary.700"
+                  _dark={{ color: "primary.700" }}
+                  _light={{ color: "primary.800" }}
                 >
                   £{item.price}
                 </Text>
-                <Text color="primary.500">
+                <Text
+                  _dark={{ color: "primary.500" }}
+                  _light={{ color: "primary.600" }}
+                >
                   £
                   {(parseFloat(item.price) + parseFloat(item.discount)).toFixed(
                     2
@@ -748,12 +796,15 @@ function BillSplitter({
       <Box
         h={maxListHeightPercent}
         mx={15}
-        borderColor="primary.500"
         borderWidth={2}
         borderRadius={15}
         alignItems="center"
         justifyContent="center"
-        bg="background.mainl"
+        _light={{
+          bg: "backgroundLight.maind",
+          borderColor: "backgroundLight.dark",
+        }}
+        _dark={{ bg: "background.mainl", borderColor: "primary.500" }}
       >
         <Box h={headerAndFooterHeight} justifyContent="center">
           <Text fontSize="xl">
@@ -803,7 +854,12 @@ function BillSplitter({
               ? "Dom's total:"
               : "Emilija's total"}
           </Text>
-          <Text fontSize="xl" fontWeight="bold" color="primary.400">
+          <Text
+            fontSize="xl"
+            fontWeight="bold"
+            _dark={{ color: "primary.400" }}
+            _light={{ color: "primary.500" }}
+          >
             £
             {list === LISTS.COMMON
               ? total(common)
@@ -862,7 +918,7 @@ function BillSplitter({
     <>
       <AppBar />
       <Box
-        _light={{ bg: "white" }}
+        _light={{ bg: "backgroundLight.main" }}
         _dark={{ bg: "background.main" }}
         flex={1}
         pt={10}
@@ -882,9 +938,13 @@ function BillSplitter({
             height={50}
             borderRadius={25}
             borderWidth={1}
-            borderColor={theme.colors.primary[500]}
-            backgroundColor={theme.colors.background.mainl}
-            backgroundDarker={theme.colors.background.maind}
+            borderColor={
+              colorMode === "dark"
+                ? theme.colors.primary[500]
+                : theme.colors.backgroundLight.dark
+            }
+            backgroundColor={theme.colors[background].main}
+            backgroundDarker={theme.colors[background].darker}
             raiseLevel={3}
           >
             <Ionicons
@@ -892,11 +952,12 @@ function BillSplitter({
               size={24}
               color={theme.colors.primary[500]}
             />
-            <Text color="primary.400" ml={2}>
+            <Text _dark={{ color: "primary.400" }} ml={2}>
               Split it!
             </Text>
           </AwesomeButton>
         </Box>
+        <BottomText />
       </Box>
     </>
   );
@@ -908,13 +969,15 @@ function BillCalculator({
     params: { totals },
   },
 }) {
+  const { colorMode } = useColorMode();
+
   function AppBar() {
     return (
       <HStack
         alignItems="center"
         justifyContent="space-between"
         safeAreaTop
-        _light={{ bg: "white" }}
+        _light={{ bg: "backgroundLight.main" }}
         _dark={{ bg: "background.main" }}
         px={3}
         pt={3}
@@ -950,6 +1013,8 @@ function BillCalculator({
       borderRadius={hp(5)}
       borderWidth={2}
       borderColor="primary.500"
+      _light={{ borderColor: "backgroundLight.dark" }}
+      _dark={{ borderColor: "primary.500" }}
       justifyContent="center"
       alignItems="center"
       h={hp(10)}
@@ -969,7 +1034,12 @@ function BillCalculator({
             ? "Emilija's total: "
             : "Total"}
         </Text>
-        <Text fontSize="3xl" fontWeight="bold" color="primary.400">
+        <Text
+          fontSize="3xl"
+          fontWeight="bold"
+          _dark={{ color: "primary.400" }}
+          _light={{ color: "primary.500" }}
+        >
           £{totals[name].toFixed(2)}
         </Text>
       </Box>
@@ -980,7 +1050,7 @@ function BillCalculator({
     <>
       <AppBar />
       <Box
-        _light={{ bg: "white" }}
+        _light={{ bg: "backgroundLight.main" }}
         _dark={{ bg: "background.main" }}
         flex={1}
         pt={10}
@@ -988,6 +1058,7 @@ function BillCalculator({
       >
         <Total name="dom" />
         <Total name="em" />
+        <BottomText />
       </Box>
     </>
   );

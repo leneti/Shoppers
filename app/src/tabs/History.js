@@ -7,6 +7,7 @@ import {
 import { theme } from "../config/theme";
 import firebase from "firebase";
 import { LogBox } from "react-native";
+import BottomText from "../components/BottomText";
 
 LogBox.ignoreLogs(["VirtualizedLists"]);
 
@@ -46,10 +47,11 @@ export default function History() {
       w={wp(60)}
       rounded="lg"
       my={1}
-      bg="background.lighter"
+      _dark={{ bg: "background.lighter" }}
+      _light={{ bg: "backgroundLight.darker" }}
     >
-      <Text color="primary.400">{item.name}</Text>
-      <Text color="primary.500">
+      <Text _dark={{ color: "primary.400" }}>{item.name}</Text>
+      <Text _dark={{ color: "primary.500" }} _light={{ color: "primary.600" }}>
         £
         {(parseFloat(item.price) + parseFloat(item.discount ?? "0")).toFixed(2)}
       </Text>
@@ -78,12 +80,15 @@ export default function History() {
       <Box
         h={maxListHeightPercent}
         my={3}
-        borderColor="primary.500"
         borderWidth={2}
         borderRadius={15}
         alignItems="center"
         justifyContent="center"
-        bg="background.mainl"
+        _light={{
+          bg: "backgroundLight.maind",
+          borderColor: "backgroundLight.dark",
+        }}
+        _dark={{ bg: "background.mainl", borderColor: "primary.500" }}
       >
         <Box h={headerAndFooterHeight} justifyContent="center">
           <Text fontSize="xl">
@@ -130,7 +135,12 @@ export default function History() {
               ? "Emilija's total"
               : "Total price:"}
           </Text>
-          <Text fontSize="xl" fontWeight="bold" color="primary.400">
+          <Text
+            fontSize="xl"
+            fontWeight="bold"
+            _dark={{ color: "primary.400" }}
+            _light={{ color: "primary.500" }}
+          >
             £
             {list === LISTS.COMMON
               ? total(selectedItem.common)
@@ -183,7 +193,8 @@ export default function History() {
         safeAreaTop
         pt={10}
         flex={1}
-        bg="background.main"
+        _light={{ bg: "backgroundLight.main" }}
+        _dark={{ bg: "background.main" }}
         alignItems="center"
       >
         <Text size="lg">History</Text>
@@ -195,17 +206,21 @@ export default function History() {
               <Box
                 px={6}
                 py={3}
-                borderColor="primary.500"
+                _dark={{ bg: "background.main", borderColor: "primary.500" }}
+                _light={{
+                  bg: "backgroundLight.maind",
+                  borderColor: "backgroundLight.dark",
+                }}
                 borderWidth={2}
                 borderRadius={10}
                 my={2}
-                bg="background.main"
               >
-                <Text color={theme.colors.primary[500]}>{item.id}</Text>
+                <Text _dark={{ color: "primary.500" }}>{item.id}</Text>
               </Box>
             </Pressable>
           )}
         />
+        <BottomText />
       </Box>
     </>
   );
