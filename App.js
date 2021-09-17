@@ -1,6 +1,7 @@
 import "react-native-gesture-handler";
 import React from "react";
 import { NativeBaseProvider } from "native-base";
+import { Provider as PaperProvider } from "react-native-paper";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import App from "./app/src/app";
 
@@ -32,7 +33,9 @@ const colorModeManager = {
 export default function Wrapper() {
   return (
     <NativeBaseProvider theme={theme} colorModeManager={colorModeManager}>
-      <App />
+      <PaperProvider>
+        <App />
+      </PaperProvider>
     </NativeBaseProvider>
   );
 }

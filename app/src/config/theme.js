@@ -15,16 +15,16 @@ export const theme = extendTheme({
       900: "#78350f",
     },
     secondary: {
-      50: "#fafaf9",
-      100: "#f5f5f4",
-      200: "#e7e5e4",
-      300: "#d6d3d1",
-      400: "#a8a29e",
-      500: "#78716c",
-      600: "#57534e",
-      700: "#44403c",
-      800: "#292524",
-      900: "#1c1917",
+      50: "#ffe4f6",
+      100: "#fcb6dd",
+      200: "#f787c5",
+      300: "#f358ad",
+      400: "#ef2c96",
+      500: "#d6167c",
+      600: "#a70f61",
+      700: "#780845",
+      800: "#490229",
+      900: "#1d0010",
     },
     background: {
       main: "#404040",
@@ -70,10 +70,6 @@ export const theme = extendTheme({
         };
       },
     },
-  },
-  config: {
-    // initialColorMode: "light",
-    // useSystemColorMode: true,
   },
 });
 export const navigatorOptions = {

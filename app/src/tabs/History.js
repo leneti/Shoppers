@@ -7,9 +7,23 @@ import {
 import { theme } from "../config/theme";
 import firebase from "firebase";
 import { LogBox } from "react-native";
-import BottomText from "../components/BottomText";
 
 LogBox.ignoreLogs(["VirtualizedLists"]);
+
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "June",
+  "July",
+  "Aug",
+  "Sept",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 export default function History() {
   const [bills, setBills] = useState([]);
@@ -191,36 +205,41 @@ export default function History() {
       </Modal>
       <Box
         safeAreaTop
-        pt={10}
         flex={1}
         _light={{ bg: "backgroundLight.main" }}
         _dark={{ bg: "background.main" }}
         alignItems="center"
       >
-        <Text size="lg">History</Text>
+        <Text fontSize="2xl" fontWeight="bold" py={3}>
+          History
+        </Text>
         <FlatList
           data={bills}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <Pressable onPress={() => setSelectedItem(item.data)}>
               <Box
-                px={6}
+                px={9}
                 py={3}
                 _dark={{ bg: "background.main", borderColor: "primary.500" }}
                 _light={{
-                  bg: "backgroundLight.maind",
+                  bg: "backgroundLight.main",
                   borderColor: "backgroundLight.dark",
                 }}
                 borderWidth={2}
-                borderRadius={10}
+                borderRadius={25}
                 my={2}
               >
-                <Text _dark={{ color: "primary.500" }}>{item.id}</Text>
+                <Text _dark={{ color: "primary.500" }}>
+                  {item.data.market}
+                  {" – "}
+                  {MONTHS[parseInt(item.data.date.substr(3, 2)) - 1]}{" "}
+                  {item.data.date.substr(0, 2)}
+                </Text>
               </Box>
             </Pressable>
           )}
         />
-        <BottomText />
       </Box>
     </>
   );

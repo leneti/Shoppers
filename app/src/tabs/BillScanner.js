@@ -27,7 +27,7 @@ import {
   useColorMode,
 } from "native-base";
 import { AppIcon } from "../components/AppIcon";
-import BottomText from "../components/BottomText";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const MONTHS = [
   "Jan",
@@ -324,40 +324,70 @@ function BillScanner({ navigation }) {
 
   const AnalyseButton = () => {
     return analyse ? (
-      <>
-        <AwesomeButton
-          progress
-          progressLoadingTime={6000}
-          onPress={async (next) => {
-            setProgressText("Uploading image to Firebase...");
-            await submitToGoogle();
-            next();
-          }}
-          width={googleResponse ? wp(30) : wp(25)}
-          height={50}
-          borderRadius={25}
-          borderWidth={1}
-          borderColor={
-            colorMode === "dark"
-              ? theme.colors.primary[500]
-              : theme.colors.backgroundLight.dark
-          }
-          backgroundColor={theme.colors[background].main}
-          backgroundDarker={theme.colors[background].darker}
-          raiseLevel={3}
-          style={{ marginTop: 20 }}
-        >
-          <Ionicons
-            name="analytics"
-            size={24}
-            color={theme.colors.primary[500]}
-          />
-          <Text _dark={{ color: "primary.400" }} ml={2}>
-            Analyse
-          </Text>
-        </AwesomeButton>
+      <Box w={wp(60)}>
+        <Box flexDirection="row" justifyContent="space-between">
+          <AwesomeButton
+            onPress={() => {
+              setImage(null);
+              setAnalyse(false);
+            }}
+            width={wp(25)}
+            height={50}
+            borderRadius={25}
+            borderWidth={1}
+            borderColor={
+              colorMode === "dark"
+                ? theme.colors.primary[500]
+                : theme.colors.backgroundLight.dark
+            }
+            backgroundColor={theme.colors[background].main}
+            backgroundDarker={theme.colors[background].darker}
+            raiseLevel={3}
+            style={{ marginTop: 20 }}
+          >
+            <Ionicons
+              name="refresh"
+              size={24}
+              color={theme.colors.primary[500]}
+            />
+            <Text _dark={{ color: "primary.400" }} ml={2}>
+              New
+            </Text>
+          </AwesomeButton>
+          <AwesomeButton
+            progress
+            progressLoadingTime={6000}
+            onPress={async (next) => {
+              setProgressText("Uploading image to Firebase...");
+              await submitToGoogle();
+              next();
+            }}
+            width={googleResponse ? wp(30) : wp(25)}
+            height={50}
+            borderRadius={25}
+            borderWidth={1}
+            borderColor={
+              colorMode === "dark"
+                ? theme.colors.primary[500]
+                : theme.colors.backgroundLight.dark
+            }
+            backgroundColor={theme.colors[background].main}
+            backgroundDarker={theme.colors[background].darker}
+            raiseLevel={3}
+            style={{ marginTop: 20 }}
+          >
+            <Ionicons
+              name="analytics"
+              size={24}
+              color={theme.colors.primary[500]}
+            />
+            <Text _dark={{ color: "primary.400" }} ml={2}>
+              Analyse
+            </Text>
+          </AwesomeButton>
+        </Box>
         <Text>{progressText}</Text>
-      </>
+      </Box>
     ) : null;
   };
 
@@ -367,87 +397,97 @@ function BillScanner({ navigation }) {
       _dark={{ bg: "background.main" }}
       flex={1}
       safeAreaTop
-      pt={10}
       alignItems="center"
       justifyContent="space-between"
     >
-      <Box
-        alignItems="center"
-        w={wp(75)}
-        p={7}
-        borderRadius={20}
-        borderWidth={2}
-        _light={{
-          bg: "backgroundLight.main",
-          borderColor: "backgroundLight.dark",
-        }}
-        _dark={{ bg: "background.main", borderColor: "primary.600" }}
-        zIndex={100}
-      >
-        <Text numberOfLines={2} textAlign="center" size="lg" mb={5}>
-          Select how you would like to analyse the bill:
-        </Text>
-        <Box justifyContent="space-between" flexDirection="row" width="100%">
-          <AwesomeButton
-            progress
-            onPress={async (next) => {
-              handlePickedImage(await takePicture());
-              next();
-            }}
-            width={wp(25)}
-            height={50}
-            borderRadius={25}
-            borderWidth={1}
-            borderColor={
-              colorMode === "dark"
-                ? theme.colors.primary[500]
-                : theme.colors.backgroundLight.dark
-            }
-            backgroundColor={theme.colors[background].main}
-            backgroundDarker={theme.colors[background].darker}
-            raiseLevel={3}
-          >
-            <Ionicons
-              name="camera-outline"
-              size={24}
-              color={theme.colors.primary[500]}
-            />
-            <Text _dark={{ color: "primary.400" }} ml={2}>
-              Scan
-            </Text>
-          </AwesomeButton>
-          <AwesomeButton
-            progress
-            onPress={async (next) => {
-              handlePickedImage(await pickImage());
-              next();
-            }}
-            width={wp(25)}
-            height={50}
-            borderRadius={25}
-            borderWidth={1}
-            borderColor={
-              colorMode === "dark"
-                ? theme.colors.primary[500]
-                : theme.colors.backgroundLight.dark
-            }
-            backgroundColor={theme.colors[background].main}
-            backgroundDarker={theme.colors[background].darker}
-            raiseLevel={3}
-          >
-            <Ionicons
-              name="images-outline"
-              size={24}
-              color={theme.colors.primary[500]}
-            />
-            <Text _dark={{ color: "primary.400" }} ml={2}>
-              Pick
-            </Text>
-          </AwesomeButton>
+      <Text fontSize="2xl" fontWeight="bold" py={3}>
+        Scanner
+      </Text>
+      {!image && (
+        <Box
+          alignItems="center"
+          w={wp(75)}
+          p={7}
+          borderRadius={20}
+          borderWidth={2}
+          _light={{
+            bg: "backgroundLight.main",
+            borderColor: "backgroundLight.dark",
+          }}
+          _dark={{ bg: "background.main", borderColor: "primary.600" }}
+          zIndex={100}
+        >
+          <Text numberOfLines={2} textAlign="center" size="lg" mb={5}>
+            Select how you would like to analyse the bill:
+          </Text>
+          <Box justifyContent="space-between" flexDirection="row" width="100%">
+            <AwesomeButton
+              progress
+              onPress={async (next) => {
+                handlePickedImage(await takePicture());
+                next();
+              }}
+              width={wp(25)}
+              height={50}
+              borderRadius={25}
+              borderWidth={1}
+              borderColor={
+                colorMode === "dark"
+                  ? theme.colors.primary[500]
+                  : theme.colors.backgroundLight.dark
+              }
+              backgroundColor={theme.colors[background].main}
+              backgroundDarker={theme.colors[background].darker}
+              raiseLevel={3}
+            >
+              <Icon
+                _light={{ name: "camera" }}
+                _dark={{ name: "camera-outline" }}
+                as={<Ionicons />}
+                size="sm"
+                color="primary.500"
+              />
+
+              <Text _dark={{ color: "primary.400" }} ml={2}>
+                Scan
+              </Text>
+            </AwesomeButton>
+            <AwesomeButton
+              progress
+              onPress={async (next) => {
+                handlePickedImage(await pickImage());
+                next();
+              }}
+              width={wp(25)}
+              height={50}
+              borderRadius={25}
+              borderWidth={1}
+              borderColor={
+                colorMode === "dark"
+                  ? theme.colors.primary[500]
+                  : theme.colors.backgroundLight.dark
+              }
+              backgroundColor={theme.colors[background].main}
+              backgroundDarker={theme.colors[background].darker}
+              raiseLevel={3}
+            >
+              <Icon
+                as={
+                  <Ionicons
+                    name={useColorModeValue("images", "images-outline")}
+                  />
+                }
+                size="sm"
+                color="primary.500"
+              />
+              <Text _dark={{ color: "primary.400" }} ml={2}>
+                Pick
+              </Text>
+            </AwesomeButton>
+          </Box>
         </Box>
-      </Box>
+      )}
       {/* <AppIcon my={20} /> */}
-      <BottomText />
       <ScrollView
         contentContainerStyle={{ alignItems: "center", paddingBottom: hp(7.5) }}
         showsVerticalScrollIndicator={false}
@@ -872,8 +912,9 @@ function BillSplitter({
     );
   };
 
-  function calculateTotals() {
-    const domShare = 0.6;
+  async function calculateTotals() {
+    const splitRatio = await AsyncStorage.getItem("splitRatio");
+    const domShare = !splitRatio ? 0.6 : parseFloat(splitRatio) / 100;
     const emShare = 1 - domShare;
     let totals = { both: 0, em: 0, dom: 0, full: googleResponse.total };
 
@@ -905,8 +946,8 @@ function BillSplitter({
       .catch(console.error);
   }
 
-  function handleSplitting(next) {
-    const totals = calculateTotals();
+  async function handleSplitting(next) {
+    const totals = await calculateTotals();
     updateFirestoreDoc(totals);
     setTimeout(() => {
       next();
@@ -933,7 +974,7 @@ function BillSplitter({
           <AwesomeButton
             progress
             progressLoadingTime={1000}
-            onPress={handleSplitting}
+            onPress={async (next) => await handleSplitting(next)}
             width={wp(50)}
             height={50}
             borderRadius={25}
@@ -957,7 +998,6 @@ function BillSplitter({
             </Text>
           </AwesomeButton>
         </Box>
-        <BottomText />
       </Box>
     </>
   );
@@ -1058,7 +1098,6 @@ function BillCalculator({
       >
         <Total name="dom" />
         <Total name="em" />
-        <BottomText />
       </Box>
     </>
   );
