@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "shoppers",
-    "slug": "shoppers",
+    "name": "Shoppers",
+    "slug": "Shoppers",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./app/res/icon.png",
@@ -13,16 +13,14 @@
     "updates": {
       "fallbackToCacheTimeout": 0
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./app/res/icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#ffc843"
       },
       "package": "com.rummeris.shoppers"
     },
