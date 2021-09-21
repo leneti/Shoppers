@@ -19,7 +19,7 @@
     "prefix": "nst",
     "body": [
       "import React, { useEffect, useState } from \"react\";",
-      "import { theme } from \"../config/theme\";",
+      "import { theme, navigatorOptions } from \"../config/constants\";",
       "import { Box, Text } from \"native-base\";",
       "import {",
       "  widthPercentageToDP as wp,",
@@ -29,7 +29,7 @@
       "",
       "export default function ${TM_FILENAME_BASE}() {",
       "  return (",
-      "    <Box flex={1} justifyContent=\"center\" alignItems=\"center\">",
+      "    <Box variant=\"background\" flex={1} justifyContent=\"center\" alignItems=\"center\">",
       "      <Text>${TM_FILENAME_BASE}</Text>",
       "    </Box>",
       "  )",

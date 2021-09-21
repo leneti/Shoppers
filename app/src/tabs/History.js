@@ -4,7 +4,6 @@ import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
 } from "react-native-responsive-screen";
-import { theme } from "../config/theme";
 import firebase from "firebase";
 import { LogBox } from "react-native";
 
@@ -73,8 +72,7 @@ export default function History() {
   );
 
   const ItemList = ({ list }) => {
-    if (!selectedItem || (!!selectedItem && !selectedItem[list].length))
-      return null;
+    if (!selectedItem || !selectedItem[list].length) return null;
     const total = (arr) =>
       arr
         .reduce(
@@ -83,12 +81,23 @@ export default function History() {
         )
         .toFixed(2);
 
+    const listCount =
+      selectedItem.emilija === undefined && selectedItem.dom === undefined
+        ? 1
+        : selectedItem.emilija === undefined || selectedItem.dom === undefined
+        ? 2
+        : 3;
+
     const maxListHeightPercent =
       selectedItem[list].length < 2
         ? hp(14)
         : selectedItem[list].length < 3
         ? hp(17)
-        : hp(20);
+        : listCount === 3
+        ? hp(20)
+        : listCount === 2
+        ? hp(30)
+        : hp(60);
     const headerAndFooterHeight = 35;
     return (
       <Box
@@ -188,28 +197,20 @@ export default function History() {
             {selectedItem?.time}
           </Modal.Header>
           <Modal.Body alignItems="center">
-            <Box>
-              {!selectedItem?.common ? (
-                <ItemList list="items" />
-              ) : (
-                <>
-                  <ItemList list={LISTS.COMMON} />
-                  <ItemList list={LISTS.DOM} />
-                  <ItemList list={LISTS.EMILIJA} />
-                </>
-              )}
-            </Box>
+            {!selectedItem?.common ? (
+              <ItemList list="items" />
+            ) : (
+              <>
+                <ItemList list={LISTS.COMMON} />
+                <ItemList list={LISTS.DOM} />
+                <ItemList list={LISTS.EMILIJA} />
+              </>
+            )}
           </Modal.Body>
           <Modal.Footer />
         </Modal.Content>
       </Modal>
-      <Box
-        safeAreaTop
-        flex={1}
-        _light={{ bg: "backgroundLight.main" }}
-        _dark={{ bg: "background.main" }}
-        alignItems="center"
-      >
+      <Box variant="background" safeAreaTop flex={1} alignItems="center">
         <Text fontSize="2xl" fontWeight="bold" py={3}>
           History
         </Text>

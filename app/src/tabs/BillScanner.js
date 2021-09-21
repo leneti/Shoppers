@@ -6,7 +6,7 @@ import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
 } from "react-native-responsive-screen";
-import { navigatorOptions, theme } from "../config/theme";
+import { navigatorOptions, theme } from "../config/constants";
 import { takePicture, pickImage } from "../components/ImagePicker";
 import { uploadImage } from "../components/ImageUpload";
 import { LogBox, ScrollView, TouchableOpacity } from "react-native";
@@ -26,7 +26,6 @@ import {
   useColorModeValue,
   useColorMode,
 } from "native-base";
-import { AppIcon } from "../components/AppIcon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const MONTHS = [
@@ -44,7 +43,6 @@ const MONTHS = [
   "Dec",
 ];
 const TESTMODE = false;
-let firestorePath = "";
 
 LogBox.ignoreLogs(["Setting a timer"]);
 
@@ -61,7 +59,6 @@ function BillScanner({ navigation }) {
       setImage(pickerResult);
       setAnalyse(false);
       setGoogleResponse(null);
-      firestorePath = "";
     }
   }
 
@@ -72,7 +69,7 @@ function BillScanner({ navigation }) {
     const newPath = `${market}--${
       MONTHS[parseInt(date.substr(3, 2)) - 1]
     }-${date.substr(0, 2)}--${time.substr(0, 5)}`;
-    firestorePath = newPath;
+    let firestorePath = newPath;
     firebase
       .storage()
       .ref(newPath)
@@ -88,7 +85,7 @@ function BillScanner({ navigation }) {
           .catch(console.warn);
       });
 
-    (async function uploadToFirestore() {
+    (async function uploadToFirestore(firestorePath) {
       try {
         await firebase
           .firestore()
@@ -97,14 +94,16 @@ function BillScanner({ navigation }) {
           .set(googleResponse);
         console.log(`${firestorePath} saved to Firestore`);
         setImage(null);
+        setAnalyse(false);
         navigation.navigate("BillSplitter", {
           googleResponse,
+          firestorePath,
         });
         setTimeout(() => setGoogleResponse(null), 1000);
       } catch (e) {
         console.error("Error adding document: ", e);
       }
-    })();
+    })(firestorePath);
   }, [googleResponse]);
 
   async function submitToGoogle() {
@@ -324,8 +323,8 @@ function BillScanner({ navigation }) {
 
   const AnalyseButton = () => {
     return analyse ? (
-      <Box w={wp(60)}>
-        <Box flexDirection="row" justifyContent="space-between">
+      <Box w={wp(60)} alignItems="center">
+        <Box w={wp(60)} flexDirection="row" justifyContent="space-between">
           <AwesomeButton
             onPress={() => {
               setImage(null);
@@ -386,19 +385,18 @@ function BillScanner({ navigation }) {
             </Text>
           </AwesomeButton>
         </Box>
-        <Text>{progressText}</Text>
+        <Text mt={3}>{progressText}</Text>
       </Box>
     ) : null;
   };
 
   return (
     <Box
-      _light={{ bg: "backgroundLight.main" }}
-      _dark={{ bg: "background.main" }}
       flex={1}
       safeAreaTop
       alignItems="center"
       justifyContent="space-between"
+      variant="background"
     >
       <Text fontSize="2xl" fontWeight="bold" py={3}>
         Scanner
@@ -487,7 +485,6 @@ function BillScanner({ navigation }) {
           </Box>
         </Box>
       )}
-      {/* <AppIcon my={20} /> */}
       <ScrollView
         contentContainerStyle={{ alignItems: "center", paddingBottom: hp(7.5) }}
         showsVerticalScrollIndicator={false}
@@ -501,7 +498,7 @@ function BillScanner({ navigation }) {
 
 function BillSplitter({
   route: {
-    params: { googleResponse },
+    params: { googleResponse, firestorePath },
   },
   navigation,
 }) {
@@ -958,13 +955,7 @@ function BillSplitter({
   return (
     <>
       <AppBar />
-      <Box
-        _light={{ bg: "backgroundLight.main" }}
-        _dark={{ bg: "background.main" }}
-        flex={1}
-        pt={10}
-        alignItems="center"
-      >
+      <Box variant="background" flex={1} pt={10} alignItems="center">
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <ItemList list={LISTS.COMMON} />
           <ItemList list={LISTS.EMILIJA} />
@@ -1009,8 +1000,6 @@ function BillCalculator({
     params: { totals },
   },
 }) {
-  const { colorMode } = useColorMode();
-
   function AppBar() {
     return (
       <HStack
@@ -1089,13 +1078,7 @@ function BillCalculator({
   return (
     <>
       <AppBar />
-      <Box
-        _light={{ bg: "backgroundLight.main" }}
-        _dark={{ bg: "background.main" }}
-        flex={1}
-        pt={10}
-        alignItems="center"
-      >
+      <Box variant="background" flex={1} pt={10} alignItems="center">
         <Total name="dom" />
         <Total name="em" />
       </Box>

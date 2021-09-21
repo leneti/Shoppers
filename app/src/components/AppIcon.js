@@ -47,7 +47,7 @@ export const AppIcon = (props) => {
                 £
               </Text>
             </Box>
-            <Box>
+            <>
               <Box
                 h={hp(1)}
                 w={wp(10)}
@@ -78,7 +78,7 @@ export const AppIcon = (props) => {
                 borderRadius={hp(0.5)}
                 bg="primary.500"
               />
-            </Box>
+            </>
           </Box>
           <Icon
             as={<Ionicons name="cart" />}

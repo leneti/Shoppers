@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { theme } from "../config/theme";
+import { theme } from "../config/constants";
 import { Switch } from "react-native";
 import { Box, Text, useColorMode, Icon, useColorModeValue } from "native-base";
 import { TextInput } from "react-native-paper";
@@ -111,13 +111,7 @@ export default function Settings() {
   /* #endregion */
 
   return (
-    <Box
-      _light={{ bg: "backgroundLight.main" }}
-      _dark={{ bg: "background.main" }}
-      flex={1}
-      safeAreaTop
-      alignItems="center"
-    >
+    <Box variant="background" flex={1} safeAreaTop alignItems="center">
       <Text fontSize="2xl" fontWeight="bold" py={3}>
         Settings
       </Text>

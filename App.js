@@ -1,11 +1,12 @@
 import "react-native-gesture-handler";
-import React from "react";
+import React, { useRef, useState } from "react";
 import { NativeBaseProvider } from "native-base";
 import { Provider as PaperProvider } from "react-native-paper";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import App from "./app/src/app";
+import AppLoading from "expo-app-loading";
 
-import { theme } from "./app/src/config/theme";
+import { theme } from "./app/src/config/constants";
 import { firebaseConfig } from "./app/src/config/secret";
 
 import firebase from "firebase/app";
@@ -30,11 +31,35 @@ const colorModeManager = {
   },
 };
 
+const TEST = true;
+
 export default function Wrapper() {
-  return (
+  const [showIntro, setShowIntro] = useState(null);
+  const i = useRef(null);
+
+  async function getIntro() {
+    try {
+      i.current = await AsyncStorage.getItem("introDone");
+    } catch (e) {
+      return e;
+    }
+  }
+
+  function handleIntro() {
+    setShowIntro(!i.current ? "yes" : "no");
+    if (TEST) AsyncStorage.removeItem("introDone");
+  }
+
+  return !showIntro ? (
+    <AppLoading
+      startAsync={getIntro}
+      onFinish={handleIntro}
+      onError={console.warn}
+    />
+  ) : (
     <NativeBaseProvider theme={theme} colorModeManager={colorModeManager}>
       <PaperProvider>
-        <App />
+        <App showIntro={showIntro} />
       </PaperProvider>
     </NativeBaseProvider>
   );

@@ -40,7 +40,6 @@ export const theme = extendTheme({
       darker: "#DCDCDC",
       lighter: "#FFF",
       dark: "#6F6F6F",
-      orange: "#F96501",
     },
   },
   components: {
@@ -58,6 +57,16 @@ export const theme = extendTheme({
         lg: { fontSize: "24px" },
         md: { fontSize: "16px" },
         sm: { fontSize: "12px" },
+      },
+    },
+    Box: {
+      variants: {
+        background: ({ colorMode }) => {
+          return {
+            bg:
+              colorMode === "dark" ? "background.main" : "backgroundLight.main",
+          };
+        },
       },
     },
     Button: {
@@ -108,4 +117,5 @@ export const navigatorOptions = {
       },
     };
   },
+  presentation: "transparentModal",
 };
