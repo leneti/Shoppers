@@ -81,7 +81,7 @@ function FinanceTracker({ navigation, route }) {
   const [bills, setBills] = useState([]);
 
   useEffect(() => {
-    if (route.params) {
+    if (route.params?.regular) {
       const bill = route.params.regular;
       if (
         bills.findIndex(
@@ -289,12 +289,17 @@ function FinanceTracker({ navigation, route }) {
             <Text fontSize="lg" fontWeight="bold">
               Bills & Subscriptions
             </Text>
-            <Text color="primary.500" fontWeight="bold" fontSize="lg">
-              See all
-            </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("AllRegulars", { bills })}
+            >
+              <Text color="primary.500" fontWeight="bold" fontSize="lg">
+                See all
+              </Text>
+            </TouchableOpacity>
           </Box>
           <FlatList
             data={bills}
+            alignSelf="flex-start"
             horizontal
             ml={4}
             keyExtractor={(item, index) => `${item}-${index}`}
@@ -351,7 +356,8 @@ function AddRegular({ navigation, route }) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    if (route.params) setCategory(route.params.selectedCategory);
+    if (route.params?.selectedCategory)
+      setCategory(route.params.selectedCategory);
   }, [route]);
 
   function AppBar() {
@@ -366,9 +372,18 @@ function AddRegular({ navigation, route }) {
         pt={3}
       >
         <TouchableOpacity
-          onPress={() =>
-            navigation.navigate("FinanceTracker", { regular: null })
-          }
+          onPress={() => {
+            if (route.params?.prevScreen) {
+              switch (route.params.prevScreen) {
+                case "AllRegulars": {
+                  navigation.navigate("AllRegulars");
+                  break;
+                }
+                default:
+                  navigation.navigate("FinanceTracker", { regular: null });
+              }
+            }
+          }}
         >
           <Icon
             size="lg"
@@ -431,7 +446,7 @@ function AddRegular({ navigation, route }) {
           onChange={onSelectDate}
         />
       )}
-      <Box variant="background" mt={10} flex={1} alignItems="center">
+      <Box variant="background" pt={10} flex={1} alignItems="center">
         <Box w={wp(90)} h={hp(10)}>
           <TextInput
             onFocus={() => setNameError(false)}
@@ -742,6 +757,58 @@ function SelectCategory({ navigation, route }) {
     );
   }
 
+  const renderItem = ({ item }) => (
+    <Box
+      flexDirection="row"
+      alignItems="center"
+      justifyContent="space-between"
+      w={wp(90)}
+    >
+      <Box flexDirection="row" alignItems="center">
+        <Box
+          borderRadius={wp(6)}
+          borderColor="gray.500"
+          borderWidth={1}
+          bg={
+            theme.colors[background][colorMode === "dark" ? "mainl" : "maind"]
+          }
+          w={wp(12)}
+          h={wp(12)}
+          justifyContent="center"
+          alignItems="center"
+        >
+          <Image alt={item.name} source={item.image} size={wp(7)} />
+        </Box>
+        <Text fontWeight="bold" fontSize="lg" ml={4}>
+          {item.name}
+        </Text>
+      </Box>
+      <TouchableOpacity
+        style={{ width: wp(6), height: wp(6) }}
+        onPress={() => setSelectedItem(item.name)}
+      >
+        <Center
+          w={wp(5)}
+          h={wp(5)}
+          borderRadius={wp(2.5)}
+          borderColor="primary.500"
+          borderWidth={1}
+        >
+          <Box
+            w={wp(3)}
+            h={wp(3)}
+            bg={
+              selectedItem === item.name
+                ? "primary.500"
+                : theme.colors[background].main
+            }
+            borderRadius={wp(1.5)}
+          ></Box>
+        </Center>
+      </TouchableOpacity>
+    </Box>
+  );
+
   return (
     <>
       <AppBar />
@@ -756,61 +823,7 @@ function SelectCategory({ navigation, route }) {
           data={CATEGORIES}
           keyExtractor={(item, index) => `${item}-${index}`}
           ItemSeparatorComponent={() => <Divider my={3} />}
-          renderItem={({ item }) => {
-            return (
-              <Box
-                flexDirection="row"
-                alignItems="center"
-                justifyContent="space-between"
-                w={wp(90)}
-              >
-                <Box flexDirection="row" alignItems="center">
-                  <Box
-                    borderRadius={wp(6)}
-                    borderColor="gray.500"
-                    borderWidth={1}
-                    bg={
-                      theme.colors[background][
-                        colorMode === "dark" ? "mainl" : "maind"
-                      ]
-                    }
-                    w={wp(12)}
-                    h={wp(12)}
-                    justifyContent="center"
-                    alignItems="center"
-                  >
-                    <Image alt={item.name} source={item.image} size={wp(7)} />
-                  </Box>
-                  <Text fontWeight="bold" fontSize="lg" ml={4}>
-                    {item.name}
-                  </Text>
-                </Box>
-                <TouchableOpacity
-                  style={{ width: wp(6), height: wp(6) }}
-                  onPress={() => setSelectedItem(item.name)}
-                >
-                  <Center
-                    w={wp(5)}
-                    h={wp(5)}
-                    borderRadius={wp(2.5)}
-                    borderColor="primary.500"
-                    borderWidth={1}
-                  >
-                    <Box
-                      w={wp(3)}
-                      h={wp(3)}
-                      bg={
-                        selectedItem === item.name
-                          ? "primary.500"
-                          : theme.colors[background].main
-                      }
-                      borderRadius={wp(1.5)}
-                    ></Box>
-                  </Center>
-                </TouchableOpacity>
-              </Box>
-            );
-          }}
+          renderItem={renderItem}
         />
         <Box pos="absolute" mb={5} bottom={0}>
           <AwesomeButton
@@ -840,6 +853,161 @@ function SelectCategory({ navigation, route }) {
   );
 }
 
+function AllRegulars({ navigation, route }) {
+  const background = useColorModeValue("backgroundLight", "background");
+  const { colorMode } = useColorMode();
+
+  const [allBills, setAllBills] = useState(route.params?.bills);
+
+  useEffect(() => {
+    if (route.params?.bills) setAllBills(route.params.bills);
+  }, [route]);
+
+  function AppBar() {
+    return (
+      <HStack
+        alignItems="center"
+        justifyContent="space-between"
+        safeAreaTop
+        _light={{ bg: "backgroundLight.main" }}
+        _dark={{ bg: "background.main" }}
+        px={3}
+        pt={3}
+      >
+        <TouchableOpacity
+          onPress={() =>
+            navigation.navigate("FinanceTracker", { regular: null })
+          }
+        >
+          <Icon
+            size="lg"
+            as={<Ionicons name="chevron-back" />}
+            _light={{ color: "primary.600" }}
+            _dark={{ color: "backgroundLight.main" }}
+          />
+        </TouchableOpacity>
+        <Text fontSize="2xl" fontWeight="bold">
+          Regular payments
+        </Text>
+        <Icon
+          size="lg"
+          as={<Ionicons name="chevron-back" />}
+          _light={{ color: "backgroundLight.main" }}
+          _dark={{ color: "background.main" }}
+        />
+      </HStack>
+    );
+  }
+
+  const renderItem = ({ item }) => {
+    const image = CATEGORIES.find((c) => c.name === item.category).image;
+    return (
+      <Box
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
+        w={wp(90)}
+      >
+        <Box flexDirection="row" alignItems="center">
+          <Box
+            borderRadius={wp(6)}
+            borderColor="gray.500"
+            borderWidth={1}
+            bg={
+              theme.colors[background][colorMode === "dark" ? "mainl" : "maind"]
+            }
+            w={wp(12)}
+            h={wp(12)}
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Image alt={item.category} source={image} size={wp(7)} />
+          </Box>
+          <Text fontWeight="bold" fontSize="lg" ml={4}>
+            {item.name}
+          </Text>
+        </Box>
+        <Text fontWeight="bold" fontSize="lg">
+          £{item.price}
+        </Text>
+      </Box>
+    );
+  };
+
+  return (
+    <>
+      <AppBar />
+      <Box
+        variant="background"
+        flex={1}
+        justifyContent="center"
+        alignItems="center"
+      >
+        <FlatList
+          mt={5}
+          ItemSeparatorComponent={() => <Divider my={3} />}
+          data={allBills}
+          keyExtractor={(item, index) => `${item}-${index}`}
+          renderItem={renderItem}
+          ListFooterComponent={() => (
+            <Box alignItems="center" mt={3}>
+              <Divider />
+              <Box
+                flexDirection="row"
+                justifyContent="space-between"
+                w={wp(80)}
+                mt={3}
+              >
+                <Text fontWeight="bold" fontSize="lg">
+                  Total
+                </Text>
+                <Text fontWeight="bold" fontSize="lg">
+                  £
+                  {route.params?.bills.reduce(
+                    (a, c) => a + parseFloat(c.price),
+                    0
+                  )}
+                </Text>
+              </Box>
+
+              <Box mt={5}>
+                <AwesomeButton
+                  onPress={() => {
+                    navigation.navigate("AddRegular", {
+                      prevScreen: "AllRegulars",
+                    });
+                  }}
+                  width={wp(60)}
+                  height={50}
+                  borderRadius={25}
+                  borderWidth={1}
+                  borderColor={
+                    colorMode === "dark"
+                      ? theme.colors.primary[500]
+                      : theme.colors.backgroundLight.dark
+                  }
+                  backgroundColor={theme.colors[background].main}
+                  backgroundDarker={theme.colors[background].darker}
+                  raiseLevel={3}
+                >
+                  <Text _dark={{ color: "primary.400" }}>Add regulars</Text>
+                  <Icon
+                    ml={2}
+                    as={<MaterialIcons />}
+                    name="post-add"
+                    size="md"
+                    color="primary.500"
+                  />
+                </AwesomeButton>
+              </Box>
+            </Box>
+          )}
+        />
+      </Box>
+    </>
+  );
+}
+
 export default function FinanceTrackerNav() {
   const Stack = createStackNavigator();
   return (
@@ -848,6 +1016,7 @@ export default function FinanceTrackerNav() {
       screenOptions={navigatorOptions}
     >
       <Stack.Screen name="FinanceTracker" component={FinanceTracker} />
+      <Stack.Screen name="AllRegulars" component={AllRegulars} />
       <Stack.Screen name="AddRegular" component={AddRegular} />
       <Stack.Screen name="SelectCategory" component={SelectCategory} />
     </Stack.Navigator>
