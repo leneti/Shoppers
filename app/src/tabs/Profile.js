@@ -166,7 +166,7 @@ export default function Settings() {
               error={parseFloat(emShare) + parseFloat(domShare) !== 100}
               style={{
                 height: hp(4),
-                width: wp(15),
+                width: 70,
                 marginHorizontal: wp(2),
                 backgroundColor: theme.colors[background].main,
               }}
