@@ -477,7 +477,7 @@ export function parseResponse(
 
   return {
     date,
-    market,
+    market: market ?? "LIDL",
     items,
     time,
     total: items.reduce(

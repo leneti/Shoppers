@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { createStackNavigator } from "@react-navigation/stack";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AwesomeButton from "@umangmaurya/react-native-really-awesome-button";
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
 } from "react-native-responsive-screen";
-import { navigatorOptions, theme } from "../config/constants";
-import { takePicture, pickImage } from "../components/ImagePicker";
-import { uploadImage } from "../components/ImageUpload";
+import { navigatorOptions, theme, MONTHS } from "../config/constants";
+import { takePicture, pickImage } from "../api/ImagePicker";
+import { uploadImage } from "../api/ImageUpload";
 import { LogBox, ScrollView, TouchableOpacity } from "react-native";
 import { GOOGLE_CLOUD_VISION_API_KEY } from "../config/secret";
-import { parseResponse } from "../components/VisionParser";
+import { parseResponse } from "../api/VisionParser";
 import firebase from "firebase";
 import {
   Text,
@@ -25,26 +25,13 @@ import {
   Divider,
   useColorModeValue,
   useColorMode,
+  Modal,
 } from "native-base";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "June",
-  "July",
-  "Aug",
-  "Sept",
-  "Oct",
-  "Nov",
-  "Dec",
-];
 const TESTMODE = false;
 
-LogBox.ignoreLogs(["Setting a timer"]);
+LogBox.ignoreLogs(["Setting a timer", "VirtualizedLists"]);
 
 function BillScanner({ navigation }) {
   const background = useColorModeValue("backgroundLight", "background");
@@ -65,10 +52,18 @@ function BillScanner({ navigation }) {
   useEffect(() => {
     if (!googleResponse) return;
     const { date, time, market } = googleResponse;
-    if (!date || !time || !market) return;
-    const newPath = `${market}--${
-      MONTHS[parseInt(date.substr(3, 2)) - 1]
-    }-${date.substr(0, 2)}--${time.substr(0, 5)}`;
+    if (!date || !time || !market) {
+      console.warn(
+        `Could not fully analyse receipt! Only found: [date: ${date}, time: ${time}, market: ${market}]`
+      );
+    }
+    const newPath = `${market ?? "LIDL"}--${
+      !date
+        ? MONTHS[new Date().getUTCMonth()]
+        : MONTHS[parseInt(date.substr(3, 2)) - 1]
+    }-${!date ? new Date().getUTCDate() : date.substr(0, 2)}--${
+      !time ? new Date().getTime() : time.substr(0, 5)
+    }`;
     let firestorePath = newPath;
     firebase
       .storage()
@@ -390,109 +385,151 @@ function BillScanner({ navigation }) {
     ) : null;
   };
 
-  return (
-    <Box
-      flex={1}
-      safeAreaTop
-      alignItems="center"
-      justifyContent="space-between"
-      variant="background"
-    >
-      <Text fontSize="2xl" fontWeight="bold" py={3}>
-        Scanner
-      </Text>
-      {!image && (
-        <Box
-          alignItems="center"
-          w={wp(75)}
-          p={7}
-          borderRadius={20}
-          borderWidth={2}
-          _light={{
-            bg: "backgroundLight.main",
-            borderColor: "backgroundLight.dark",
-          }}
-          _dark={{ bg: "background.main", borderColor: "primary.600" }}
-          zIndex={100}
-        >
-          <Text numberOfLines={2} textAlign="center" size="lg" mb={5}>
-            Select how you would like to analyse the bill:
-          </Text>
-          <Box justifyContent="space-between" flexDirection="row" width="100%">
-            <AwesomeButton
-              progress
-              onPress={async (next) => {
-                handlePickedImage(await takePicture());
-                next();
-              }}
-              width={wp(25)}
-              height={50}
-              borderRadius={25}
-              borderWidth={1}
-              borderColor={
-                colorMode === "dark"
-                  ? theme.colors.primary[500]
-                  : theme.colors.backgroundLight.dark
-              }
-              backgroundColor={theme.colors[background].main}
-              backgroundDarker={theme.colors[background].darker}
-              raiseLevel={3}
-            >
-              <Icon
-                _light={{ name: "camera" }}
-                _dark={{ name: "camera-outline" }}
-                as={<Ionicons />}
-                size="sm"
-                color="primary.500"
-              />
-
-              <Text _dark={{ color: "primary.400" }} ml={2}>
-                Scan
-              </Text>
-            </AwesomeButton>
-            <AwesomeButton
-              progress
-              onPress={async (next) => {
-                handlePickedImage(await pickImage());
-                next();
-              }}
-              width={wp(25)}
-              height={50}
-              borderRadius={25}
-              borderWidth={1}
-              borderColor={
-                colorMode === "dark"
-                  ? theme.colors.primary[500]
-                  : theme.colors.backgroundLight.dark
-              }
-              backgroundColor={theme.colors[background].main}
-              backgroundDarker={theme.colors[background].darker}
-              raiseLevel={3}
-            >
-              <Icon
-                as={
-                  <Ionicons
-                    name={useColorModeValue("images", "images-outline")}
-                  />
-                }
-                size="sm"
-                color="primary.500"
-              />
-              <Text _dark={{ color: "primary.400" }} ml={2}>
-                Pick
-              </Text>
-            </AwesomeButton>
-          </Box>
-        </Box>
-      )}
-      <ScrollView
-        contentContainerStyle={{ alignItems: "center", paddingBottom: hp(7.5) }}
-        showsVerticalScrollIndicator={false}
+  function AppBar() {
+    return (
+      <HStack
+        alignItems="center"
+        justifyContent="space-between"
+        safeAreaTop
+        _light={{ bg: "backgroundLight.main" }}
+        _dark={{ bg: "background.main" }}
+        px={3}
+        pt={3}
       >
-        <SelectedImage />
-        <AnalyseButton />
-      </ScrollView>
-    </Box>
+        <Icon
+          size="lg"
+          as={<Ionicons name="chevron-back" />}
+          _light={{ color: "backgroundLight.main" }}
+          _dark={{ color: "background.main" }}
+        />
+        <Box alignItems="center">
+          <Text fontSize="2xl" fontWeight="bold">
+            Scanner
+          </Text>
+        </Box>
+        <TouchableOpacity onPress={() => navigation.navigate("History")}>
+          <Box p={1}>
+            <Icon
+              size="md"
+              color="primary.500"
+              as={<MaterialIcons name="history" />}
+            />
+          </Box>
+        </TouchableOpacity>
+      </HStack>
+    );
+  }
+
+  return (
+    <>
+      <AppBar />
+      <Box
+        flex={1}
+        pt={10}
+        alignItems="center"
+        justifyContent="space-between"
+        variant="background"
+      >
+        {!image && (
+          <Box
+            alignItems="center"
+            w={wp(75)}
+            p={7}
+            borderRadius={20}
+            borderWidth={2}
+            _light={{
+              bg: "backgroundLight.main",
+              borderColor: "backgroundLight.dark",
+            }}
+            _dark={{ bg: "background.main", borderColor: "primary.600" }}
+            zIndex={100}
+          >
+            <Text numberOfLines={2} textAlign="center" fontSize="lg" mb={5}>
+              Select how you would like to analyse the bill:
+            </Text>
+            <Box
+              justifyContent="space-between"
+              flexDirection="row"
+              width="100%"
+            >
+              <AwesomeButton
+                progress
+                onPress={async (next) => {
+                  handlePickedImage(await takePicture());
+                  next();
+                }}
+                width={wp(25)}
+                height={50}
+                borderRadius={25}
+                borderWidth={1}
+                borderColor={
+                  colorMode === "dark"
+                    ? theme.colors.primary[500]
+                    : theme.colors.backgroundLight.dark
+                }
+                backgroundColor={theme.colors[background].main}
+                backgroundDarker={theme.colors[background].darker}
+                raiseLevel={3}
+              >
+                <Icon
+                  _light={{ name: "camera" }}
+                  _dark={{ name: "camera-outline" }}
+                  as={<Ionicons />}
+                  size="sm"
+                  color="primary.500"
+                />
+
+                <Text _dark={{ color: "primary.400" }} ml={2}>
+                  Scan
+                </Text>
+              </AwesomeButton>
+              <AwesomeButton
+                progress
+                onPress={async (next) => {
+                  handlePickedImage(await pickImage());
+                  next();
+                }}
+                width={wp(25)}
+                height={50}
+                borderRadius={25}
+                borderWidth={1}
+                borderColor={
+                  colorMode === "dark"
+                    ? theme.colors.primary[500]
+                    : theme.colors.backgroundLight.dark
+                }
+                backgroundColor={theme.colors[background].main}
+                backgroundDarker={theme.colors[background].darker}
+                raiseLevel={3}
+              >
+                <Icon
+                  as={
+                    <Ionicons
+                      name={useColorModeValue("images", "images-outline")}
+                    />
+                  }
+                  size="sm"
+                  color="primary.500"
+                />
+                <Text _dark={{ color: "primary.400" }} ml={2}>
+                  Pick
+                </Text>
+              </AwesomeButton>
+            </Box>
+          </Box>
+        )}
+        <ScrollView
+          contentContainerStyle={{
+            alignItems: "center",
+            paddingBottom: hp(7.5),
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <SelectedImage />
+          <AnalyseButton />
+        </ScrollView>
+      </Box>
+    </>
   );
 }
 
@@ -1030,7 +1067,7 @@ function BillCalculator({
         <Icon
           size="lg"
           as={<Ionicons name="chevron-back" />}
-          _light={{ color: "white" }}
+          _light={{ color: "backgroundLight.maiin" }}
           _dark={{ color: "background.main" }}
         />
       </HStack>
@@ -1086,6 +1123,261 @@ function BillCalculator({
   );
 }
 
+function History({ navigation }) {
+  const [bills, setBills] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  const LISTS = { EMILIJA: "emilija", DOM: "dom", COMMON: "common" };
+
+  useEffect(() => {
+    firebase
+      .firestore()
+      .collection("bills")
+      .get()
+      .then((querySnapshot) => {
+        let arr = [];
+        querySnapshot.forEach((doc) =>
+          arr.push({ id: doc.id, data: doc.data() })
+        );
+        setBills(arr);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedItem) return;
+    setModalVisible(true);
+  }, [selectedItem]);
+
+  const renderItem = ({ item }) => (
+    <Box
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      px={3}
+      py={1}
+      w={wp(60)}
+      rounded="lg"
+      my={1}
+      _dark={{ bg: "background.lighter" }}
+      _light={{ bg: "backgroundLight.darker" }}
+    >
+      <Text _dark={{ color: "primary.400" }}>{item.name}</Text>
+      <Text _dark={{ color: "primary.500" }} _light={{ color: "primary.600" }}>
+        £
+        {(parseFloat(item.price) + parseFloat(item.discount ?? "0")).toFixed(2)}
+      </Text>
+    </Box>
+  );
+
+  const ItemList = ({ list }) => {
+    if (!selectedItem || !selectedItem[list].length) return null;
+    const total = (arr) =>
+      arr
+        .reduce(
+          (a, c) => a + parseFloat(c.price) + parseFloat(c.discount ?? 0),
+          0
+        )
+        .toFixed(2);
+
+    const listCount =
+      selectedItem.emilija?.length === 0 && selectedItem.dom?.length === 0
+        ? 1
+        : selectedItem.emilija?.length === 0 || selectedItem.dom?.length === 0
+        ? 2
+        : 3;
+
+    const maxListHeightPercent =
+      selectedItem[list].length < 2
+        ? hp(14)
+        : selectedItem[list].length < 3
+        ? hp(17)
+        : listCount === 3
+        ? hp(20)
+        : listCount === 2
+        ? hp(30)
+        : hp(60);
+
+    const headerAndFooterHeight = 35;
+    return (
+      <Box
+        h={maxListHeightPercent}
+        my={3}
+        borderWidth={2}
+        borderRadius={15}
+        alignItems="center"
+        justifyContent="center"
+        _light={{
+          bg: "backgroundLight.maind",
+          borderColor: "backgroundLight.dark",
+        }}
+        _dark={{ bg: "background.mainl", borderColor: "primary.500" }}
+      >
+        <Box h={headerAndFooterHeight} justifyContent="center">
+          <Text fontSize="xl">
+            {list === LISTS.COMMON
+              ? "Common items"
+              : list === LISTS.EMILIJA
+              ? "Emilija's items"
+              : list === LISTS.DOM
+              ? "Dom's items"
+              : "All items"}
+          </Text>
+        </Box>
+        <Box h={maxListHeightPercent - 2 * headerAndFooterHeight}>
+          <FlatList
+            contentContainerStyle={{
+              borderRadius: 15,
+            }}
+            showsVerticalScrollIndicator={false}
+            data={
+              list === LISTS.EMILIJA
+                ? selectedItem.emilija
+                : list === LISTS.DOM
+                ? selectedItem.dom
+                : list === LISTS.COMMON
+                ? selectedItem.common
+                : selectedItem.items
+            }
+            keyExtractor={(item, index) => `${item.name}-${index}`}
+            renderItem={renderItem}
+          />
+        </Box>
+        <Divider />
+        <Box
+          h={headerAndFooterHeight}
+          justifyContent="space-between"
+          alignItems="center"
+          flexDirection="row"
+          w={wp(50)}
+        >
+          <Text fontSize="lg">
+            {list === LISTS.DOM
+              ? "Dom's total:"
+              : list === LISTS.EMILIJA
+              ? "Emilija's total"
+              : "Total price:"}
+          </Text>
+          <Text
+            fontSize="xl"
+            fontWeight="bold"
+            _dark={{ color: "primary.400" }}
+            _light={{ color: "primary.500" }}
+          >
+            £
+            {list === LISTS.COMMON
+              ? total(selectedItem.common)
+              : list === LISTS.EMILIJA
+              ? total(selectedItem.emilija)
+              : list === LISTS.DOM
+              ? total(selectedItem.dom)
+              : total(selectedItem.items)}
+          </Text>
+        </Box>
+      </Box>
+    );
+  };
+
+  function AppBar() {
+    return (
+      <HStack
+        alignItems="center"
+        justifyContent="space-between"
+        safeAreaTop
+        _light={{ bg: "backgroundLight.main" }}
+        _dark={{ bg: "background.main" }}
+        px={3}
+        pt={3}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Icon
+            size="lg"
+            as={<Ionicons name="chevron-back" />}
+            _light={{ color: "primary.600" }}
+            _dark={{ color: "white" }}
+          />
+        </TouchableOpacity>
+        <Box alignItems="center">
+          <Text fontSize="2xl" fontWeight="bold">
+            History
+          </Text>
+        </Box>
+        <Icon
+          size="lg"
+          as={<Ionicons name="chevron-back" />}
+          _light={{ color: "backgroundLight.maiin" }}
+          _dark={{ color: "background.main" }}
+        />
+      </HStack>
+    );
+  }
+
+  return (
+    <>
+      <Modal
+        isOpen={modalVisible}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedItem(null);
+        }}
+      >
+        <Modal.Content maxWidth="400px" w={wp(80)}>
+          <Modal.CloseButton />
+          <Modal.Header flexDirection="row" justifyContent="center">
+            {selectedItem?.market}
+            {"  "}
+            {selectedItem?.date}
+            {"  "}
+            {selectedItem?.time}
+          </Modal.Header>
+          <Modal.Body alignItems="center">
+            {!selectedItem?.common ? (
+              <ItemList list="items" />
+            ) : (
+              <>
+                <ItemList list={LISTS.COMMON} />
+                <ItemList list={LISTS.DOM} />
+                <ItemList list={LISTS.EMILIJA} />
+              </>
+            )}
+          </Modal.Body>
+          <Modal.Footer />
+        </Modal.Content>
+      </Modal>
+      <AppBar />
+      <Box variant="background" safeAreaTop flex={1} alignItems="center">
+        <FlatList
+          data={bills}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <Pressable onPress={() => setSelectedItem(item.data)}>
+              <Box
+                px={9}
+                py={3}
+                _dark={{ bg: "background.main", borderColor: "primary.500" }}
+                _light={{
+                  bg: "backgroundLight.main",
+                  borderColor: "backgroundLight.dark",
+                }}
+                borderWidth={2}
+                borderRadius={25}
+                my={2}
+              >
+                <Text _dark={{ color: "primary.500" }}>
+                  {item.data.market}
+                  {" – "}
+                  {MONTHS[parseInt(item.data.date.substr(3, 2)) - 1]}{" "}
+                  {item.data.date.substr(0, 2)}
+                </Text>
+              </Box>
+            </Pressable>
+          )}
+        />
+      </Box>
+    </>
+  );
+}
+
 export default function BillScannerNav() {
   const Stack = createStackNavigator();
 
@@ -1097,6 +1389,7 @@ export default function BillScannerNav() {
       <Stack.Screen name="BillScanner" component={BillScanner} />
       <Stack.Screen name="BillSplitter" component={BillSplitter} />
       <Stack.Screen name="BillCalculator" component={BillCalculator} />
+      <Stack.Screen name="History" component={History} />
     </Stack.Navigator>
   );
 }

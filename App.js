@@ -5,6 +5,21 @@ import { Provider as PaperProvider } from "react-native-paper";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import App from "./app/src/app";
 import AppLoading from "expo-app-loading";
+import {
+  useFonts,
+  Roboto_100Thin,
+  Roboto_100Thin_Italic,
+  Roboto_300Light,
+  Roboto_300Light_Italic,
+  Roboto_400Regular,
+  Roboto_400Regular_Italic,
+  Roboto_500Medium,
+  Roboto_500Medium_Italic,
+  Roboto_700Bold,
+  Roboto_700Bold_Italic,
+  Roboto_900Black,
+  Roboto_900Black_Italic,
+} from "@expo-google-fonts/roboto";
 
 import { theme } from "./app/src/config/constants";
 import { firebaseConfig } from "./app/src/config/secret";
@@ -31,11 +46,25 @@ const colorModeManager = {
   },
 };
 
-const TEST = true;
+const TEST = false;
 
 export default function Wrapper() {
   const [showIntro, setShowIntro] = useState(null);
   const i = useRef(null);
+  let [fontsLoaded] = useFonts({
+    Roboto_100Thin,
+    Roboto_100Thin_Italic,
+    Roboto_300Light,
+    Roboto_300Light_Italic,
+    Roboto_400Regular,
+    Roboto_400Regular_Italic,
+    Roboto_500Medium,
+    Roboto_500Medium_Italic,
+    Roboto_700Bold,
+    Roboto_700Bold_Italic,
+    Roboto_900Black,
+    Roboto_900Black_Italic,
+  });
 
   async function getIntro() {
     try {
@@ -50,7 +79,7 @@ export default function Wrapper() {
     if (TEST) AsyncStorage.removeItem("introDone");
   }
 
-  return !showIntro ? (
+  return !showIntro || !fontsLoaded ? (
     <AppLoading
       startAsync={getIntro}
       onFinish={handleIntro}
