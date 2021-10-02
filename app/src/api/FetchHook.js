@@ -3,7 +3,12 @@ import { useEffect, useRef, useReducer } from "react";
 // Usage: const { status, data, error } = useFetch(url);
 // status === 'idle' | 'error' | 'fetching' | 'fetched'
 
-export const useFetch = (url) => {
+/**
+ * Fetches data from Nordigen
+ * @param {{url: String, method: "POST"|"GET"|"PUT"|"DELETE", headers: {"Accept": String, "Authorization": String, "Content-Type": String}, body: String}}
+ * @returns {(status: String, error?: String, data: any)}
+ */
+export const useFetch = ({ url, method, headers, body }) => {
   const cache = useRef({});
 
   const initialState = {
@@ -36,7 +41,7 @@ export const useFetch = (url) => {
         dispatch({ type: "FETCHED", payload: data });
       } else {
         try {
-          const response = await fetch(url);
+          const response = await fetch(url, { headers, method, body });
           const data = await response.json();
           cache.current[url] = data;
           if (cancelRequest) return;

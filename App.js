@@ -1,5 +1,5 @@
 import "react-native-gesture-handler";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { NativeBaseProvider } from "native-base";
 import { Provider as PaperProvider } from "react-native-paper";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -25,6 +25,7 @@ import { theme } from "./app/src/config/constants";
 import { firebaseConfig } from "./app/src/config/secret";
 
 import firebase from "firebase/app";
+import { Linking } from "react-native";
 
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 
@@ -78,6 +79,17 @@ export default function Wrapper() {
     setShowIntro(!i.current ? "yes" : "no");
     if (TEST) AsyncStorage.removeItem("introDone");
   }
+
+  useEffect(() => {
+    if (!firebase.auth().currentUser?.uid)
+      firebase
+        .auth()
+        .signInAnonymously()
+        .then(() =>
+          console.log("currentUser uid: ", firebase.auth().currentUser.uid)
+        )
+        .catch(console.warn);
+  }, []);
 
   return !showIntro || !fontsLoaded ? (
     <AppLoading

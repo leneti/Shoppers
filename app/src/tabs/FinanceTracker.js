@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   theme,
   navigatorOptions,
@@ -32,6 +32,7 @@ import {
   Actionsheet,
   useDisclose,
   ScrollView,
+  Spinner,
 } from "native-base";
 import {
   widthPercentageToDP as wp,
@@ -54,17 +55,27 @@ import {
 import CircularProgress from "../components/ProgressCircle";
 import * as Linking from "expo-linking";
 import { getBills, saveBillsToStorage } from "../api/Bills";
+import { NORDIGEN_TOKEN } from "../config/secret";
+import { useFetch } from "../api/FetchHook";
+import {
+  createEUA,
+  createLINK,
+  createREQ,
+  deleteREQ,
+  getBalance,
+  listAccounts,
+} from "../api/Nordigen";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function Overview({ navigation, route }) {
   const background = useColorModeValue("backgroundLight", "background");
   const { colorMode } = useColorMode();
 
-  const [accounts, setAccounts] = useState([1]);
+  const [accounts, setAccounts] = useState([]);
   const [bills, setBills] = useState([]);
   const [loadingInfo, setLoadingInfo] = useState(true);
 
   useEffect(() => {
-    // const appLink = Linking.makeUrl();
     if (bills.length === 0)
       (async function () {
         let mBills = await getBills();
@@ -185,9 +196,7 @@ function Overview({ navigation, route }) {
         {accounts.length === 0 ? (
           <Box mt={5}>
             <AwesomeButton
-              onPress={() => {
-                navigation.navigate("FinanceTracker");
-              }}
+              onPress={() => navigation.navigate("AddAccount")}
               width={wp(50)}
               height={50}
               borderRadius={25}
@@ -237,19 +246,17 @@ function Overview({ navigation, route }) {
             Upcoming regulars
           </Text>
           <TouchableOpacity
-            onPress={() => {
-              navigation.navigate("FinanceTracker");
-            }}
+            onPress={() => navigation.navigate("FinanceTracker")}
           >
             <Text color="primary.500" fontWeight="bold" fontSize="lg">
               Details
             </Text>
           </TouchableOpacity>
         </Box>
-        {accounts.length === 0 ? (
-          <Box mt={5}>
+        {bills.length === 0 ? (
+          <Box mt={3}>
             <AwesomeButton
-              onPress={() => {}}
+              onPress={() => navigation.navigate("FinanceTracker")}
               width={wp(50)}
               height={50}
               borderRadius={25}
@@ -263,14 +270,7 @@ function Overview({ navigation, route }) {
               backgroundDarker={theme.colors[background].darker}
               raiseLevel={3}
             >
-              <Icon
-                mr={2}
-                as={<Ionicons />}
-                name="add"
-                size="md"
-                color="primary.500"
-              />
-              <Text _dark={{ color: "primary.400" }}>Add another account</Text>
+              <Text _dark={{ color: "primary.400" }}>Manage Bills</Text>
             </AwesomeButton>
           </Box>
         ) : (
@@ -287,6 +287,224 @@ function Overview({ navigation, route }) {
         )}
       </Box>
     </Box>
+  );
+}
+
+function AddAccount({ navigation, route }) {
+  const background = useColorModeValue("backgroundLight", "background");
+  const { colorMode } = useColorMode();
+
+  const [selectedBank, setSelectedBank] = useState(null);
+
+  const eua = useRef(null);
+  const req = useRef(null);
+
+  const { status, data, error } = useFetch({
+    url: "https://ob.nordigen.com/api/aspsps/?country=gb",
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Token ${NORDIGEN_TOKEN}`,
+    },
+  });
+
+  useEffect(() => {
+    Linking.addEventListener("url", handleRedirect);
+    return () => Linking.removeEventListener("url", handleRedirect);
+  }, []);
+
+  /**
+   * Handles all logic behind adding the bank account
+   * @param {{bic: string, countries: string[], id: string, logo: string, name: string, transaction_total_days: string}[]} bank Bank
+   */
+  async function handleBankSelect(bank) {
+    try {
+      const mBank = await getBankFromStorage(bank.name);
+      if (!!mBank) {
+        console.log(mBank);
+        return;
+      }
+      setSelectedBank(bank);
+      eua.current = await createEUA(bank.transaction_total_days, bank.id);
+      if (eua.current.status_code) {
+        console.log(eua.current);
+        return;
+      }
+      req.current = await createREQ(eua.current.id);
+      if (req.current.status_code) {
+        console.log(req.current);
+        return;
+      }
+      const { initiate: link } = await createLINK(req.current.id, bank.id);
+      console.log(link);
+      Linking.openURL(link);
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  /**
+   * Tries to get the bank from local storage
+   * @param {string} bankName
+   * @returns {Promise<{bankName: string, bankLogoUrl: URL, aspsp_id: string, eua_id: string, req_id: string, accounts: string[]}>}
+   */
+  async function getBankFromStorage(bankName) {
+    try {
+      const mBank = await AsyncStorage.getItem(bankName);
+      return JSON.parse(mBank);
+    } catch (e) {
+      console.warn(e);
+      return null;
+    }
+  }
+
+  async function handleRedirect(event) {
+    let data = Linking.parse(event.url);
+    if (!data.queryParams?.ref) return;
+
+    const { accounts } = await listAccounts(req.current.id);
+
+    await saveBank(accounts);
+
+    accounts.forEach((acc) => {
+      getBalance(acc)
+        .then((balances) => {
+          console.log(`Account: ${acc}`);
+          console.log("Balances:");
+          console.log(balances);
+        })
+        .catch(console.warn);
+    });
+  }
+
+  async function saveBank(accounts) {
+    try {
+      const banks = JSON.parse(await AsyncStorage.getItem("linked_banks"));
+
+      await AsyncStorage.setItem(
+        "linked_banks",
+        JSON.stringify(
+          !banks ? [selectedBank.name] : [...banks, selectedBank.name]
+        )
+      );
+
+      await AsyncStorage.setItem(
+        selectedBank.name,
+        JSON.stringify({
+          bankName: selectedBank.name,
+          bankLogoUrl: selectedBank.logo,
+          aspsp_id: selectedBank.id,
+          eua_id: eua.current.id,
+          req_id: req.current.id,
+          accounts,
+        })
+      );
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  async function tryDeleteREQ() {
+    try {
+      const banks = JSON.parse(await AsyncStorage.getItem("linked_banks"));
+      if (!banks?.length) return;
+
+      for (const bankName of banks) {
+        const bank = JSON.parse(await AsyncStorage.getItem(bankName));
+        console.log(await deleteREQ(bank.req_id));
+        await AsyncStorage.removeItem(bankName);
+      }
+      await AsyncStorage.removeItem("linked_banks");
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  /**
+   * Renders downloaded banks
+   * @param {{item: {bic: String, countries: String[], id: String, logo: String, name: String, transaction_total_days: String}}}
+   */
+  const renderBank = ({ item }) => {
+    return (
+      <TouchableOpacity onPress={() => handleBankSelect(item)}>
+        <Box flexDirection="row" alignItems="center" w={wp(90)}>
+          <Image
+            alt={item.name}
+            source={{ uri: item.logo }}
+            w={wp(14)}
+            h={wp(14)}
+            borderRadius={15}
+            m={2}
+          />
+          <Text fontSize="lg" fontWeight="bold" ml={3}>
+            {item.name}
+          </Text>
+        </Box>
+      </TouchableOpacity>
+    );
+  };
+
+  function AppBar() {
+    return (
+      <HStack
+        alignItems="center"
+        justifyContent="space-between"
+        safeAreaTop
+        _light={{ bg: "backgroundLight.main" }}
+        _dark={{ bg: "background.main" }}
+        px={3}
+        pt={3}
+      >
+        <TouchableOpacity onPress={() => navigation.navigate("Overview")}>
+          <Icon
+            size="lg"
+            as={<Ionicons name="chevron-back" />}
+            _light={{ color: "primary.600" }}
+            _dark={{ color: "backgroundLight.main" }}
+          />
+        </TouchableOpacity>
+        <Text fontSize="2xl" fontWeight="bold">
+          Add a new account
+        </Text>
+        <TouchableOpacity onPress={() => tryDeleteREQ()}>
+          <Icon
+            size="lg"
+            as={<Ionicons name="chevron-back" />}
+            // _light={{ color: "backgroundLight.main" }}
+            // _dark={{ color: "background.main" }}
+            color="danger.500"
+          />
+        </TouchableOpacity>
+      </HStack>
+    );
+  }
+
+  return (
+    <>
+      <AppBar />
+      <Box variant="background" flex={1} pt={5} alignItems="center">
+        {status === "idle" || status === "fetching" ? (
+          <Box flexDirection="row" alignItems="center">
+            <Spinner size="lg" accessibilityLabel="Loading banks" />
+            <Text fontSize="lg" fontWeight="bold" color="primary.500" ml={2}>
+              Loading
+            </Text>
+          </Box>
+        ) : status === "error" ? (
+          <Text color="error.400">
+            Could not load the bank list. Try again later
+          </Text>
+        ) : (
+          <FlatList
+            data={[...data]}
+            ItemSeparatorComponent={() => <Divider my={3} />}
+            keyExtractor={(item, index) => `${item}-${index}`}
+            showsVerticalScrollIndicator={false}
+            renderItem={renderBank}
+          />
+        )}
+      </Box>
+    </>
   );
 }
 
@@ -547,7 +765,7 @@ function FinanceTracker({ navigation, route }) {
           />
         </TouchableOpacity>
         <Text fontSize="2xl" fontWeight="bold">
-          FinanceTracker
+          Finance Tracker
         </Text>
         <Icon
           size="lg"
@@ -577,7 +795,7 @@ function FinanceTracker({ navigation, route }) {
             delay={500}
             duration={1000}
             valuePrefix="£"
-            description="Total since payday"
+            description="Total until payday"
             textStyle={{
               fontWeight: "bold",
               fontSize: hp(3),
@@ -1594,6 +1812,7 @@ export default function FinanceTrackerNav() {
       screenOptions={navigatorOptions}
     >
       <Stack.Screen name="Overview" component={Overview} />
+      <Stack.Screen name="AddAccount" component={AddAccount} />
       <Stack.Screen name="FinanceTracker" component={FinanceTracker} />
       <Stack.Screen name="AllRegulars" component={AllRegulars} />
       <Stack.Screen name="AddRegular" component={AddRegular} />

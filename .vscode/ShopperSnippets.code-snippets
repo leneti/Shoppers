@@ -37,5 +37,47 @@
       ""
     ],
     "description": "New Shopper Tab"
+  },
+  "New Custom Screen": {
+    "prefix": "nstt",
+    "body": [
+      "function $1({ navigation, route }) {",
+      "  const background = useColorModeValue(\"backgroundLight\", \"background\");",
+      "  const { colorMode } = useColorMode();",
+      "",
+      "  return (",
+      "    <Box variant=\"background\" flex={1} safeAreaTop justifyContent=\"center\" alignItems=\"center\">",
+      "      <Text>$1</Text>",
+      "    </Box>",
+      "  )",
+      "}"
+    ],
+    "description": "New Custom Screen"
+  },
+  "Shoppers Button": {
+    "prefix": "awb",
+    "body": [
+      "<AwesomeButton",
+      "  onPress={() => {}}",
+      "  width={wp(50)}",
+      "  height={50}",
+      "  borderRadius={25}",
+      "  borderWidth={1}",
+      "  borderColor={ colorMode === \"dark\" ? theme.colors.primary[500] : theme.colors.backgroundLight.dark }",
+      "  backgroundColor={theme.colors[background].main}",
+      "  backgroundDarker={theme.colors[background].darker}",
+      "  raiseLevel={3}",
+      ">",
+      "  <Icon",
+      "    mr={2}",
+      "    as={<Ionicons />}",
+      "    name=\"add\"",
+      "    size=\"md\"",
+      "    color=\"primary.500\"",
+      "  />",
+      "  <Text _dark={{ color: \"primary.400\" }}>${1:Button}</Text>",
+      "</AwesomeButton>"
+    ],
+    "description": "Shoppers Button"
   }
 }
