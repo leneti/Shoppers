@@ -17,6 +17,7 @@ import {
   heightPercentageToDP as hp,
   widthPercentageToDP as wp,
 } from "react-native-responsive-screen";
+import * as Linking from "expo-linking";
 
 const TESTMODE = false;
 
@@ -238,10 +239,27 @@ function Main() {
 export default function appNav({ showIntro }) {
   const Stack = createStackNavigator();
 
+  const linking = {
+    prefixes: [Linking.makeUrl("/")],
+    config: {
+      screens: {
+        main: {
+          screens: {
+            Finances: {
+              screens: {
+                AddAccount: "addaccount/",
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
   return (
     <>
       <StatusBar style={useColorModeValue("dark", "light")} />
-      <NavigationContainer>
+      <NavigationContainer linking={linking}>
         <Stack.Navigator
           initialRouteName={showIntro === "yes" ? "intro" : "main"}
           screenOptions={navigatorOptions}

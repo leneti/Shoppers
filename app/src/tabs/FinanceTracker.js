@@ -64,8 +64,32 @@ import {
   deleteREQ,
   getBalance,
   listAccounts,
+  TEST,
 } from "../api/Nordigen";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+/**
+ * Tries to get the bank from local storage
+ * @param {string} bankName
+ * @returns {Promise<{bankName: string, bankLogoUrl: URL, aspsp_id: string, eua_id: string, req_id: string, accounts: string[]}>}
+ */
+async function getBankFromStorage(bankName) {
+  try {
+    const mBank = await AsyncStorage.getItem(bankName);
+    return JSON.parse(mBank);
+  } catch (e) {
+    console.warn(e);
+    return null;
+  }
+}
+
+/**
+ * Returns a promise resolving to the array of linked bank accounts if any exist, or null otherwise
+ * @returns {Promise<String[]>}
+ */
+async function getLinkedBanks() {
+  return JSON.parse(await AsyncStorage.getItem("linked_banks"));
+}
 
 function Overview({ navigation, route }) {
   const background = useColorModeValue("backgroundLight", "background");
@@ -73,7 +97,8 @@ function Overview({ navigation, route }) {
 
   const [accounts, setAccounts] = useState([]);
   const [bills, setBills] = useState([]);
-  const [loadingInfo, setLoadingInfo] = useState(true);
+  const [loadingBills, setLoadingBills] = useState(true);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
 
   useEffect(() => {
     if (bills.length === 0)
@@ -82,94 +107,264 @@ function Overview({ navigation, route }) {
         mBills = mBills.filter((b) => !b.paid);
         setBills(mBills);
         setTimeout(() => {
-          setLoadingInfo(false);
+          setLoadingBills(false);
         }, 500);
       })();
   }, []);
 
+  useEffect(() => {
+    (async function () {
+      try {
+        const banks = await getLinkedBanks();
+        if (!banks) return;
+        let accountsToBeSet = [];
+        for (const bank of banks) {
+          if (accounts.findIndex((a) => a.bankName === bank) >= 0) continue;
+          const bankInfo = await getBankFromStorage(bank);
+          const { accounts: accs, bankName, bankLogoUrl: logo } = bankInfo;
+
+          let bankToAdd = {
+            bankName,
+            logo,
+          };
+
+          let accsToAdd = [];
+          for (const acc of accs) {
+            const response = await getBalance(acc);
+            const balancesArr = response.balances;
+
+            let balanceLeft;
+            for (const balanceObj of balancesArr) {
+              if (balanceObj.balanceType !== "interimAvailable") continue;
+              const balance = balanceObj.balanceAmount;
+              const currencyFormat = new Intl.NumberFormat("en-GB", {
+                style: "currency",
+                currency: balance.currency,
+                minimumFractionDigits: 2,
+              });
+              balanceLeft = currencyFormat.format(balance.amount);
+            }
+
+            const info = {
+              account: acc,
+              balance: balanceLeft,
+            };
+
+            accsToAdd.push(info);
+          }
+
+          bankToAdd["accounts"] = accsToAdd;
+          accountsToBeSet.push(bankToAdd);
+        }
+        setAccounts(accountsToBeSet);
+      } catch (e) {
+        console.log(e);
+      } finally {
+        setLoadingAccounts(false);
+      }
+    })();
+  }, [route]);
+
   const renderAccount = ({ item }) => {
     return (
-      <Box flexDirection="row" alignItems="center" h={wp(15)} px={3}>
-        <Box rounded="full" bg="#999" w={wp(10)} h={wp(10)} />
-        <Box pl={4}>
-          <Text fontWeight="bold">
-            {currencyFormat.format(Math.random() * 10000 + 16)}
-          </Text>
-          <Text fontSize="sm" color="gray.400">
-            Revolut
-          </Text>
-        </Box>
-      </Box>
-    );
-  };
-
-  const renderUpcoming = ({ item }) => {
-    const d = new Date();
-    const [cMonth, cDay, cYear] = [d.getMonth(), d.getDate(), d.getFullYear()];
-    const month = item.dueDate.split(" ")[1];
-    const monthIndex = MONTHS.findIndex((m) => m === month); //Oct == 9
-    const day = parseInt(item.dueDate.split(" ")[0]);
-    const freq = item.frequency;
-
-    d.setDate(day);
-    d.setMonth(monthIndex);
-
-    switch (freq) {
-      case FREQUENCIES.Monthly: {
-        break;
-      }
-      case FREQUENCIES.Weekly: {
-        break;
-      }
-      case FREQUENCIES.Quarterly: {
-        break;
-      }
-      case FREQUENCIES.Annually: {
-        break;
-      }
-    }
-
-    return (
-      <Box alignItems="center" px={3} w={wp(22)}>
-        <Box
-          borderRadius="full"
-          borderColor="primary.500"
-          borderWidth={3}
-          p={0.5}
-        >
-          <Box
-            p={4}
-            borderRadius="full"
-            borderColor="gray.400"
-            borderWidth={1}
-            bg={
-              colorMode === "dark"
-                ? "background.lighter"
-                : "backgroundLight.darker"
-            }
-            style={{ width: 60, height: 60 }}
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Image
-              source={CATEGORIES.find((c) => c.name === item.category).image}
-              alt={item.category}
-              style={{ width: 30, height: 30 }}
-            />
+      <TouchableOpacity onPress={() => console.log("Bank info: ", item)}>
+        <Box flexDirection="row" alignItems="center" h={wp(15)} pr={3}>
+          <Image
+            source={{ uri: item.logo }}
+            w={wp(12)}
+            h={wp(12)}
+            rounded="full"
+            alt={`${item.bankName} logo`}
+          />
+          <Box pl={4}>
+            <Text fontWeight="bold">{item.accounts[0].balance}</Text>
+            <Text fontSize="sm" color="gray.400">
+              {item.bankName}
+            </Text>
           </Box>
         </Box>
-        <Text mt={2} fontWeight={300} isTruncated>
-          {item.name}
-        </Text>
-        <Text fontWeight="bold" color="primary.500">
-          {currencyFormat.format(item.price)}
-        </Text>
-        <Text>
-          {day} {MONTH_TRUNC[item.dueDate.split(" ")[1]]}
-        </Text>
-      </Box>
+      </TouchableOpacity>
     );
   };
+
+  const renderLoadingAccount = () => (
+    <Box w={wp(30)} mx={2}>
+      <Placeholder
+        Animation={(props) => (
+          <Shine
+            {...props}
+            style={{
+              backgroundColor:
+                colorMode === "dark"
+                  ? theme.colors.gray[300]
+                  : theme.colors.gray[50],
+            }}
+          />
+        )}
+        Left={(props) => (
+          <PlaceholderMedia
+            {...props}
+            isRound={true}
+            style={{
+              backgroundColor:
+                colorMode === "dark"
+                  ? theme.colors.gray[400]
+                  : theme.colors.gray[200],
+              width: wp(12),
+              height: wp(12),
+              borderRadius: wp(6),
+            }}
+          />
+        )}
+      >
+        <View
+          style={{ marginStart: 10, height: wp(12), justifyContent: "center" }}
+        >
+          <PlaceholderLine
+            width={wp(Math.random() * 10 + 15)}
+            height={hp(1)}
+            style={{
+              backgroundColor:
+                colorMode === "dark"
+                  ? "#777"
+                  : theme.colors.backgroundLight.darker,
+              borderRadius: hp(0.5),
+            }}
+          />
+          <PlaceholderLine
+            width={wp(Math.random() * 5 + 10)}
+            height={hp(1)}
+            style={{
+              backgroundColor:
+                colorMode === "dark"
+                  ? theme.colors.background.lighter
+                  : theme.colors.backgroundLight.darker,
+              borderRadius: hp(0.5),
+            }}
+          />
+        </View>
+      </Placeholder>
+    </Box>
+  );
+
+  const renderUpcoming = ({ item }) => (
+    <Box alignItems="center" px={3} w={wp(22)}>
+      <Box
+        borderRadius="full"
+        borderColor="primary.500"
+        borderWidth={3}
+        p={0.5}
+      >
+        <Box
+          p={4}
+          borderRadius="full"
+          borderColor="gray.400"
+          borderWidth={1}
+          bg={
+            colorMode === "dark"
+              ? "background.lighter"
+              : "backgroundLight.darker"
+          }
+          style={{ width: 60, height: 60 }}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Image
+            source={CATEGORIES.find((c) => c.name === item.category).image}
+            alt={item.category}
+            style={{ width: 30, height: 30 }}
+          />
+        </Box>
+      </Box>
+      <Text mt={2} fontWeight={300} isTruncated>
+        {item.name}
+      </Text>
+      <Text fontWeight="bold" color="primary.500">
+        {currencyFormat.format(item.price)}
+      </Text>
+      <Text>
+        {parseInt(item.dueDate.split(" ")[0])}{" "}
+        {MONTH_TRUNC[item.dueDate.split(" ")[1]]}
+      </Text>
+    </Box>
+  );
+
+  const renderLoadingUpcoming = () => (
+    <Box w={wp(22)} mx={-1}>
+      <Placeholder
+        Animation={(props) => (
+          <Shine
+            {...props}
+            style={{
+              backgroundColor:
+                colorMode === "dark"
+                  ? theme.colors.gray[300]
+                  : theme.colors.gray[50],
+            }}
+          />
+        )}
+        style={{ alignItems: "center" }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignSelf: "center",
+          }}
+        >
+          <PlaceholderMedia
+            isRound={true}
+            style={{
+              backgroundColor:
+                colorMode === "dark"
+                  ? theme.colors.gray[400]
+                  : theme.colors.gray[200],
+              width: wp(12),
+              height: wp(12),
+              borderRadius: wp(6),
+            }}
+          />
+        </View>
+        <PlaceholderLine
+          width={wp(Math.random() * 10 + 7)}
+          height={hp(1)}
+          style={{
+            backgroundColor:
+              colorMode === "dark"
+                ? "#777"
+                : theme.colors.backgroundLight.darker,
+            borderRadius: hp(0.5),
+            alignSelf: "center",
+            marginTop: 10,
+          }}
+        />
+        <PlaceholderLine
+          width={wp(Math.random() * 5 + 5)}
+          height={hp(1)}
+          style={{
+            backgroundColor:
+              colorMode === "dark"
+                ? theme.colors.background.lighter
+                : theme.colors.backgroundLight.darker,
+            borderRadius: hp(0.5),
+            alignSelf: "center",
+          }}
+        />
+        <PlaceholderLine
+          width={wp(Math.random() * 10 + 5)}
+          height={hp(1)}
+          style={{
+            backgroundColor:
+              colorMode === "dark"
+                ? "#666"
+                : theme.colors.backgroundLight.darker,
+            borderRadius: hp(0.5),
+            alignSelf: "center",
+          }}
+        />
+      </Placeholder>
+    </Box>
+  );
 
   return (
     <Box safeAreaTop variant="background" flex={1} alignItems="center">
@@ -187,13 +382,26 @@ function Overview({ navigation, route }) {
           <Text fontSize="lg" fontWeight="bold">
             Linked accounts
           </Text>
-          <TouchableOpacity onPress={() => {}}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("LinkedAccounts", { accounts })}
+          >
             <Text color="primary.500" fontWeight="bold" fontSize="lg">
               Manage
             </Text>
           </TouchableOpacity>
         </Box>
-        {accounts.length === 0 ? (
+        {loadingAccounts ? (
+          <Box h={wp(15)} mx={3} alignSelf="flex-start">
+            <FlatList
+              data={[1, 2, 3]}
+              alignSelf="flex-start"
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, index) => `${item}-${index}`}
+              renderItem={renderLoadingAccount}
+            />
+          </Box>
+        ) : accounts.length === 0 ? (
           <Box mt={5}>
             <AwesomeButton
               onPress={() => navigation.navigate("AddAccount")}
@@ -221,9 +429,9 @@ function Overview({ navigation, route }) {
             </AwesomeButton>
           </Box>
         ) : (
-          <Box h={wp(15)} alignSelf="flex-start">
+          <Box h={wp(15)} mx={3} alignSelf="flex-start">
             <FlatList
-              data={[1, 2, 3, 4, 5]}
+              data={accounts}
               alignSelf="flex-start"
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -253,7 +461,19 @@ function Overview({ navigation, route }) {
             </Text>
           </TouchableOpacity>
         </Box>
-        {bills.length === 0 ? (
+        {loadingBills ? (
+          <Box h={wp(35)} alignSelf="flex-start">
+            <FlatList
+              data={[1, 2, 3, 4, 5]}
+              alignSelf="flex-start"
+              horizontal
+              scrollEnabled={false}
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, index) => `${item}-${index}`}
+              renderItem={renderLoadingUpcoming}
+            />
+          </Box>
+        ) : bills.length === 0 ? (
           <Box mt={3}>
             <AwesomeButton
               onPress={() => navigation.navigate("FinanceTracker")}
@@ -291,10 +511,7 @@ function Overview({ navigation, route }) {
 }
 
 function AddAccount({ navigation, route }) {
-  const background = useColorModeValue("backgroundLight", "background");
   const { colorMode } = useColorMode();
-
-  const [selectedBank, setSelectedBank] = useState(null);
 
   const eua = useRef(null);
   const req = useRef(null);
@@ -324,81 +541,72 @@ function AddAccount({ navigation, route }) {
         console.log(mBank);
         return;
       }
-      setSelectedBank(bank);
+
       eua.current = await createEUA(bank.transaction_total_days, bank.id);
       if (eua.current.status_code) {
-        console.log(eua.current);
+        console.warn(eua.current);
         return;
       }
-      req.current = await createREQ(eua.current.id);
+
+      const redirect = Linking.makeUrl("addaccount", {
+        name: bank.name,
+        logo: bank.logo,
+        id: bank.id,
+      });
+
+      req.current = await createREQ(eua.current.id, redirect);
       if (req.current.status_code) {
-        console.log(req.current);
+        console.warn(req.current);
         return;
       }
+
       const { initiate: link } = await createLINK(req.current.id, bank.id);
-      console.log(link);
       Linking.openURL(link);
     } catch (e) {
       console.warn(e);
     }
   }
 
-  /**
-   * Tries to get the bank from local storage
-   * @param {string} bankName
-   * @returns {Promise<{bankName: string, bankLogoUrl: URL, aspsp_id: string, eua_id: string, req_id: string, accounts: string[]}>}
-   */
-  async function getBankFromStorage(bankName) {
-    try {
-      const mBank = await AsyncStorage.getItem(bankName);
-      return JSON.parse(mBank);
-    } catch (e) {
-      console.warn(e);
-      return null;
-    }
-  }
-
   async function handleRedirect(event) {
     let data = Linking.parse(event.url);
-    if (!data.queryParams?.ref) return;
+
+    const qIndex = data.queryParams?.id.indexOf("?");
+    if (qIndex >= 0)
+      data.queryParams.id = data.queryParams.id.substr(0, qIndex);
 
     const { accounts } = await listAccounts(req.current.id);
 
-    await saveBank(accounts);
+    await saveBank(
+      data.queryParams.name,
+      data.queryParams.logo,
+      data.queryParams.id,
+      accounts
+    );
 
-    accounts.forEach((acc) => {
-      getBalance(acc)
-        .then((balances) => {
-          console.log(`Account: ${acc}`);
-          console.log("Balances:");
-          console.log(balances);
-        })
-        .catch(console.warn);
-    });
+    navigation.navigate("Overview", { newAccountLinked: true });
   }
 
-  async function saveBank(accounts) {
+  async function saveBank(bankName, bankLogoUrl, aspsp_id, accounts) {
     try {
-      const banks = JSON.parse(await AsyncStorage.getItem("linked_banks"));
+      const banks = await getLinkedBanks();
 
       await AsyncStorage.setItem(
         "linked_banks",
-        JSON.stringify(
-          !banks ? [selectedBank.name] : [...banks, selectedBank.name]
-        )
+        JSON.stringify(!banks ? [bankName] : [...banks, bankName])
       );
 
-      await AsyncStorage.setItem(
-        selectedBank.name,
-        JSON.stringify({
-          bankName: selectedBank.name,
-          bankLogoUrl: selectedBank.logo,
-          aspsp_id: selectedBank.id,
-          eua_id: eua.current.id,
-          req_id: req.current.id,
-          accounts,
-        })
-      );
+      const bankToSave = {
+        bankName,
+        bankLogoUrl,
+        aspsp_id,
+        eua_id: eua.current.id,
+        req_id: req.current.id,
+        accounts,
+      };
+
+      console.log("Saving bank to storage:", bankToSave);
+
+      await AsyncStorage.setItem(bankName, JSON.stringify(bankToSave));
     } catch (e) {
       console.warn(e);
     }
@@ -407,7 +615,10 @@ function AddAccount({ navigation, route }) {
   async function tryDeleteREQ() {
     try {
       const banks = JSON.parse(await AsyncStorage.getItem("linked_banks"));
-      if (!banks?.length) return;
+      if (!banks?.length) {
+        console.log("No linked banks found");
+        return;
+      }
 
       for (const bankName of banks) {
         const bank = JSON.parse(await AsyncStorage.getItem(bankName));
@@ -455,7 +666,11 @@ function AddAccount({ navigation, route }) {
         px={3}
         pt={3}
       >
-        <TouchableOpacity onPress={() => navigation.navigate("Overview")}>
+        <TouchableOpacity
+          onPress={() =>
+            navigation.navigate(route.params?.prevScreen ?? "Overview")
+          }
+        >
           <Icon
             size="lg"
             as={<Ionicons name="chevron-back" />}
@@ -466,13 +681,21 @@ function AddAccount({ navigation, route }) {
         <Text fontSize="2xl" fontWeight="bold">
           Add a new account
         </Text>
-        <TouchableOpacity onPress={() => tryDeleteREQ()}>
+        <TouchableOpacity
+          onPress={() => {
+            if (TEST) tryDeleteREQ();
+          }}
+        >
           <Icon
             size="lg"
             as={<Ionicons name="chevron-back" />}
-            // _light={{ color: "backgroundLight.main" }}
-            // _dark={{ color: "background.main" }}
-            color="danger.500"
+            color={
+              TEST
+                ? "danger.500"
+                : colorMode === "dark"
+                ? "background.main"
+                : "backgroundLight.main"
+            }
           />
         </TouchableOpacity>
       </HStack>
@@ -508,6 +731,115 @@ function AddAccount({ navigation, route }) {
   );
 }
 
+function LinkedAccounts({ navigation, route }) {
+  const background = useColorModeValue("backgroundLight", "background");
+  const { colorMode } = useColorMode();
+
+  function AppBar() {
+    return (
+      <HStack
+        alignItems="center"
+        justifyContent="space-between"
+        safeAreaTop
+        _light={{ bg: "backgroundLight.main" }}
+        _dark={{ bg: "background.main" }}
+        px={3}
+        pt={3}
+      >
+        <TouchableOpacity onPress={() => navigation.navigate("Overview")}>
+          <Icon
+            size="lg"
+            as={<Ionicons name="chevron-back" />}
+            _light={{ color: "primary.600" }}
+            _dark={{ color: "backgroundLight.main" }}
+          />
+        </TouchableOpacity>
+        <Text fontSize="2xl" fontWeight="bold">
+          Linked Accounts
+        </Text>
+        <Icon
+          size="lg"
+          as={<Ionicons name="chevron-back" />}
+          _light={{ color: "backgroundLight.main" }}
+          _dark={{ color: "background.main" }}
+        />
+      </HStack>
+    );
+  }
+
+  const renderBank = ({ item }) => {
+    return (
+      <Box
+        flexDirection="row"
+        w={wp(90)}
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <Box flexDirection="row" alignItems="center">
+          <Image
+            rounded="full"
+            source={{ uri: item.logo }}
+            w={wp(12)}
+            h={wp(12)}
+            alt={item.bankName}
+          />
+          <Text fontSize="lg" fontWeight="bold" ml={4}>
+            {item.bankName}
+          </Text>
+        </Box>
+        <Box justifyContent="flex-end">
+          <Text fontWeight="bold" my={0.5}>
+            {item.accounts[0].balance}
+          </Text>
+        </Box>
+      </Box>
+    );
+  };
+
+  return (
+    <>
+      <AppBar />
+      <Box variant="background" flex={1} py={5} alignItems="center">
+        <Box w={wp(90)}>
+          {route.params?.accounts?.length > 0 && (
+            <FlatList
+              mb={100}
+              ItemSeparatorComponent={() => <Divider my={3} />}
+              data={route.params.accounts}
+              keyExtractor={(item, index) => `${item}-${index}`}
+              showsVerticalScrollIndicator={false}
+              renderItem={renderBank}
+            />
+          )}
+        </Box>
+      </Box>
+      <Box pos="absolute" mb={5} bottom={0} alignSelf="center">
+        <AwesomeButton
+          onPress={() =>
+            navigation.navigate("AddAccount", {
+              prevScreen: "LinkedAccounts",
+            })
+          }
+          width={wp(70)}
+          height={50}
+          borderRadius={25}
+          borderWidth={1}
+          borderColor={
+            colorMode === "dark"
+              ? theme.colors.primary[500]
+              : theme.colors.backgroundLight.dark
+          }
+          backgroundColor={theme.colors[background].main}
+          backgroundDarker={theme.colors[background].darker}
+          raiseLevel={3}
+        >
+          <Text _dark={{ color: "primary.400" }}>Add an account</Text>
+        </AwesomeButton>
+      </Box>
+    </>
+  );
+}
+
 function FinanceTracker({ navigation, route }) {
   const background = useColorModeValue("backgroundLight", "background");
   const { colorMode } = useColorMode();
@@ -533,7 +865,6 @@ function FinanceTracker({ navigation, route }) {
   }
 
   useEffect(() => {
-    // const appLink = Linking.makeUrl();
     if (bills.length === 0)
       (async function () {
         let mBills = await getBills();
@@ -948,6 +1279,7 @@ function FinanceTracker({ navigation, route }) {
               data={[1, 2, 3]}
               alignSelf="flex-start"
               horizontal
+              scrollEnabled={false}
               showsHorizontalScrollIndicator={false}
               keyExtractor={(item, index) => `${item}-${index}`}
               renderItem={renderLoadingBill}
@@ -1813,6 +2145,7 @@ export default function FinanceTrackerNav() {
     >
       <Stack.Screen name="Overview" component={Overview} />
       <Stack.Screen name="AddAccount" component={AddAccount} />
+      <Stack.Screen name="LinkedAccounts" component={LinkedAccounts} />
       <Stack.Screen name="FinanceTracker" component={FinanceTracker} />
       <Stack.Screen name="AllRegulars" component={AllRegulars} />
       <Stack.Screen name="AddRegular" component={AddRegular} />

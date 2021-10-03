@@ -19,8 +19,11 @@ const SKIPWORDS = [
   "===",
   "total",
   "тоtal",
+  "тотal",
   "toial",
   "t0tal",
+  "tоtal",
+  "discount",
   "a",
   "b",
   "mid:",
@@ -35,6 +38,7 @@ const SKIPWORDS = [
 ];
 const STOPWORDS = ["tid:", "sale"];
 
+/* #region  Helper Functions */
 /**
  * @param {string} val
  * @returns `true` if the input string parses to an integer, and `false` otherwise
@@ -71,7 +75,7 @@ function parseTime(timeStr) {
 function checkPrice(str) {
   let pr = str.includes(" ") ? str.split(" ")[0] : str;
   pr.replace("A", "").replace("B", "");
-  return /^[£-]*\d+[.]\d{2}$/.test(pr) ? pr : null;
+  return /^[-]?\d+[.]\d{2}$/.test(pr) ? pr : null;
 }
 
 /**
@@ -141,8 +145,8 @@ function getMinMaxes(vertices) {
  */
 export function parseResponse(
   textAnnotations,
-  debug = false,
-  shortenDebugInfo = false
+  debug = true,
+  shortenDebugInfo = true
 ) {
   /* #region  Variables */
   let shortened = shortenDebugInfo;
@@ -434,6 +438,7 @@ export function parseResponse(
           if (debug) console.log(`  ${currentName} (current name)`);
         }
       }
+
       if (currentPrice) {
         seenPrices.push(...usedPr);
         seenIndexes.push(...usedIdx);
@@ -464,13 +469,21 @@ export function parseResponse(
           currentName = "";
           currentPrice = null;
         }
-      } else if (currentName.includes("@")) {
+      } else if (currentName.includes("@") || currentName.includes("x £")) {
         seenIndexes.push(...usedIdx);
         const lastItem = items.pop();
-        lastItem.name += `\n${currentName}`;
+        lastItem.name += `${
+          currentName.includes("@") ? "\n" : " "
+        }${currentName}`;
         items.push(lastItem);
         currentName = "";
         currentPrice = null;
+        if (debug)
+          console.log(
+            "\u001b[92m" +
+              `Updated ${lastItem.name}   ${lastItem.price}` +
+              "\u001b[0m"
+          );
       }
     }
   }

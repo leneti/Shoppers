@@ -1037,6 +1037,9 @@ function BillCalculator({
     params: { totals },
   },
 }) {
+  const background = useColorModeValue("backgroundLight", "background");
+  const { colorMode } = useColorMode();
+
   function AppBar() {
     return (
       <HStack
@@ -1118,6 +1121,25 @@ function BillCalculator({
       <Box variant="background" flex={1} pt={10} alignItems="center">
         <Total name="dom" />
         <Total name="em" />
+      </Box>
+      <Box pos="absolute" mb={5} bottom={0}>
+        <AwesomeButton
+          onPress={() => navigation.navigate("BillScanner")}
+          width={wp(70)}
+          height={50}
+          borderRadius={25}
+          borderWidth={1}
+          borderColor={
+            colorMode === "dark"
+              ? theme.colors.primary[500]
+              : theme.colors.backgroundLight.dark
+          }
+          backgroundColor={theme.colors[background].main}
+          backgroundDarker={theme.colors[background].darker}
+          raiseLevel={3}
+        >
+          <Text _dark={{ color: "primary.400" }}>Done</Text>
+        </AwesomeButton>
       </Box>
     </>
   );

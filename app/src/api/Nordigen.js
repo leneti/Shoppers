@@ -3,7 +3,7 @@ import firebase from "firebase/app";
 import * as Linking from "expo-linking";
 
 const transactionDays = 365;
-const TEST = true;
+export const TEST = false;
 
 /**
  * Creates an end-user agreement
@@ -47,9 +47,10 @@ export const createEUA = async (transaction_total_days, aspsp_id) => {
 /**
  * Creates a requisition
  * @param {String} eua_id ID of EUA
+ * @param {String} redirect path to app link
  * @returns {Promise<{id: String, redirect: String, status: "CR"|"LN"|"SU", agreements: String[], accounts: [], reference: String, enduser_id: String, user_language: Sring}>}
  */
-export const createREQ = async (eua_id) => {
+export const createREQ = async (eua_id, redirect = Linking.makeUrl()) => {
   const userUuid = require("uuid-by-string")(
     firebase.auth().currentUser.uid,
     3
@@ -64,7 +65,7 @@ export const createREQ = async (eua_id) => {
         Authorization: `Token ${NORDIGEN_TOKEN}`,
       },
       body: JSON.stringify({
-        redirect: Linking.makeUrl(),
+        redirect,
         reference: `req-${userUuid}`,
         enduser_id: userUuid,
         agreements: [eua_id],
@@ -183,6 +184,43 @@ export const deleteREQ = async (req_id) => {
     );
     const delResult = await response.json();
     return delResult;
+  } catch (e) {
+    console.warn(e);
+    return null;
+  }
+};
+
+/**
+ * Deletes the last created requisition
+ * @returns {Promise<{summary: String, detail: String, status_code?: number}>}
+ */
+export const deleteLastREQ = async () => {
+  try {
+    const resp1 = await fetch(`https://ob.nordigen.com/api/requisitions/`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Token ${NORDIGEN_TOKEN}`,
+      },
+    });
+    const { results: reqs } = await resp1.json();
+
+    for (const req of reqs) {
+      if (req.id === "ad5d5f5e-a8bf-4652-bd5b-755159a25c39") continue;
+      const response = await fetch(
+        `https://ob.nordigen.com/api/requisitions/${req.id}/`,
+        {
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Token ${NORDIGEN_TOKEN}`,
+          },
+        }
+      );
+      const delResult = await response.json();
+      return delResult;
+    }
+    return "No requisitions deleted";
   } catch (e) {
     console.warn(e);
     return null;
