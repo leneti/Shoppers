@@ -13,3 +13,4 @@ web-build/
 .DS_Store
 /app/src/config/secret.js
 Keystore.txt
+/app/src/config/testTransactions.js

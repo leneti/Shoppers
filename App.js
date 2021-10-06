@@ -82,13 +82,7 @@ export default function Wrapper() {
 
   useEffect(() => {
     if (!firebase.auth().currentUser?.uid)
-      firebase
-        .auth()
-        .signInAnonymously()
-        .then(() =>
-          console.log("currentUser uid: ", firebase.auth().currentUser.uid)
-        )
-        .catch(console.warn);
+      firebase.auth().signInAnonymously().catch(console.warn);
   }, []);
 
   return !showIntro || !fontsLoaded ? (

@@ -226,3 +226,28 @@ export const deleteLastREQ = async () => {
     return null;
   }
 };
+
+/**
+ * Retrieves the details for the account
+ * @param {string} acc_id ID of account
+ * @returns {Promise<{account: {currency: string, iban: string, ownerName: string, resourceId: string}}>}
+ */
+export const getDetails = async (acc_id) => {
+  try {
+    const response = await fetch(
+      `https://ob.nordigen.com/api/accounts/${acc_id}/details`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Token ${NORDIGEN_TOKEN}`,
+        },
+      }
+    );
+    const acount = await response.json();
+    return acount;
+  } catch (e) {
+    console.warn(e);
+    return null;
+  }
+};

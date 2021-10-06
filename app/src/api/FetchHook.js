@@ -5,10 +5,16 @@ import { useEffect, useRef, useReducer } from "react";
 
 /**
  * Fetches data from Nordigen
- * @param {{url: String, method: "POST"|"GET"|"PUT"|"DELETE", headers: {"Accept": String, "Authorization": String, "Content-Type": String}, body: String}}
- * @returns {(status: String, error?: String, data: any)}
+ * @param {{url: String, method: "POST"|"GET"|"PUT"|"DELETE", headers: {"Accept": String, "Authorization": String, "Content-Type": String}, body: String, shouldFetch: boolean}}
+ * @returns {{status: 'idle' | 'error' | 'fetching' | 'fetched', error?: String, data: any}}
  */
-export const useFetch = ({ url, method, headers, body }) => {
+export const useFetch = ({
+  url,
+  method,
+  headers,
+  body,
+  shouldFetch = true,
+}) => {
   const cache = useRef({});
 
   const initialState = {
@@ -32,7 +38,9 @@ export const useFetch = ({ url, method, headers, body }) => {
 
   useEffect(() => {
     let cancelRequest = false;
-    if (!url) return;
+    if (!url || !shouldFetch) return;
+
+    console.log("Fetching transactions");
 
     const fetchData = async () => {
       dispatch({ type: "FETCHING" });
@@ -58,7 +66,7 @@ export const useFetch = ({ url, method, headers, body }) => {
     return function cleanup() {
       cancelRequest = true;
     };
-  }, [url]);
+  }, [url, shouldFetch]);
 
   return state;
 };
