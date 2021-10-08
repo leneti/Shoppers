@@ -1,9 +1,9 @@
 import { NORDIGEN_TOKEN } from "../config/secret";
 import firebase from "firebase/app";
 import * as Linking from "expo-linking";
+import { TEST } from "../config/constants";
 
 const transactionDays = 365;
-export const TEST = false;
 
 /**
  * Creates an end-user agreement
@@ -28,11 +28,11 @@ export const createEUA = async (transaction_total_days, aspsp_id) => {
           Authorization: `Token ${NORDIGEN_TOKEN}`,
         },
         body: JSON.stringify({
-          max_historical_days: TEST
+          max_historical_days: TEST.NordigenSandbox
             ? 90
             : Math.min(transactionDays, parseInt(transaction_total_days)),
           enduser_id: userUuid,
-          aspsp_id: TEST ? "SANDBOXFINANCE_SFIN0000" : aspsp_id,
+          aspsp_id: TEST.NordigenSandbox ? "SANDBOXFINANCE_SFIN0000" : aspsp_id,
         }),
       }
     );
@@ -66,7 +66,7 @@ export const createREQ = async (eua_id, redirect = Linking.makeUrl()) => {
       },
       body: JSON.stringify({
         redirect,
-        reference: `req-${userUuid}`,
+        reference: `req-${userUuid}-${eua_id}`,
         enduser_id: userUuid,
         agreements: [eua_id],
         user_language: "EN",
@@ -103,7 +103,7 @@ export const createLINK = async (req_id, aspsp_id) => {
           Authorization: `Token ${NORDIGEN_TOKEN}`,
         },
         body: JSON.stringify({
-          aspsp_id: TEST ? "SANDBOXFINANCE_SFIN0000" : aspsp_id,
+          aspsp_id: TEST.NordigenSandbox ? "SANDBOXFINANCE_SFIN0000" : aspsp_id,
         }),
       }
     );
@@ -228,7 +228,7 @@ export const deleteLastREQ = async () => {
 };
 
 /**
- * Retrieves the details for the account
+ * Retrieves the details of the account
  * @param {string} acc_id ID of account
  * @returns {Promise<{account: {currency: string, iban: string, ownerName: string, resourceId: string}}>}
  */
@@ -246,6 +246,31 @@ export const getDetails = async (acc_id) => {
     );
     const acount = await response.json();
     return acount;
+  } catch (e) {
+    console.warn(e);
+    return null;
+  }
+};
+
+/**
+ * Retrieves the details of the bank
+ * @param {string} aspsps_id Nordigen's ASPSP ID of the bank
+ * @returns {Promise<{id: string, name: string, bic: string, transaction_total_days: string, countries: string[], logo: URL}>}
+ */
+export const getASPSPSDetails = async (aspsps_id) => {
+  try {
+    const response = await fetch(
+      `https://ob.nordigen.com/api/aspsps/${aspsps_id}/`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Token ${NORDIGEN_TOKEN}`,
+        },
+      }
+    );
+    const aspsps_details = await response.json();
+    return aspsps_details;
   } catch (e) {
     console.warn(e);
     return null;

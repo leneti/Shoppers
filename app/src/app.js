@@ -1,10 +1,10 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { StyleSheet, View, Text, Image, Dimensions } from "react-native";
 import { useColorModeValue } from "native-base";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { theme, navigatorOptions } from "./config/constants";
+import { theme, navigatorOptions, TEST } from "./config/constants";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import AppIntro from "rn-falcon-app-intro";
@@ -19,12 +19,10 @@ import {
 } from "react-native-responsive-screen";
 import * as Linking from "expo-linking";
 
-const TESTMODE = false;
-
 function Intro({ navigation }) {
   function finishIntro() {
-    if (!TESTMODE) AsyncStorage.setItem("introDone", "yes");
-    navigation.navigate("main");
+    if (!TEST.AlwaysShowIntro) AsyncStorage.setItem("introDone", "yes");
+    navigation.navigate("Main");
   }
 
   return (
@@ -243,11 +241,12 @@ export default function appNav({ showIntro }) {
     prefixes: [Linking.makeUrl("/")],
     config: {
       screens: {
-        main: {
+        Main: {
           screens: {
             Finances: {
               screens: {
                 AddAccount: "addaccount/",
+                BankDetails: "bankdetails/",
               },
             },
           },
@@ -261,11 +260,11 @@ export default function appNav({ showIntro }) {
       <StatusBar style={useColorModeValue("dark", "light")} />
       <NavigationContainer linking={linking}>
         <Stack.Navigator
-          initialRouteName={showIntro === "yes" ? "intro" : "main"}
+          initialRouteName={showIntro === "yes" ? "Intro" : "Main"}
           screenOptions={navigatorOptions}
         >
-          <Stack.Screen name="intro" component={Intro} />
-          <Stack.Screen name="main" component={Main} />
+          <Stack.Screen name="Intro" component={Intro} />
+          <Stack.Screen name="Main" component={Main} />
         </Stack.Navigator>
       </NavigationContainer>
     </>

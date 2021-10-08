@@ -7,6 +7,7 @@ import {
   MONTH_TRUNC,
   FREQUENCIES,
   CATEGORIES,
+  TEST,
 } from "../config/constants";
 import { createStackNavigator } from "@react-navigation/stack";
 import {
@@ -65,10 +66,10 @@ import {
   createLINK,
   createREQ,
   deleteREQ,
+  getASPSPSDetails,
   getBalance,
   getDetails,
   listAccounts,
-  TEST,
 } from "../api/Nordigen";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import currency from "currency.js";
@@ -78,7 +79,7 @@ import { transactions } from "../config/testTransactions";
 /**
  * Tries to get the bank from local storage
  * @param {string} bankName
- * @returns {Promise<{bankName: string, bankLogoUrl: URL, aspsp_id: string, eua_id: string, req_id: string, accounts: string[]}>}
+ * @returns {Promise<{bankName: string, bankLogoUrl: URL, aspsp_id: string, eua_id: string, req_id: string, accounts: string[], eua_created: string, eua_validFor: number, ownerName: string}>}
  */
 async function getBankFromStorage(bankName) {
   try {
@@ -98,13 +99,13 @@ async function getLinkedBanks() {
   return JSON.parse(await AsyncStorage.getItem("linked_banks"));
 }
 
-async function tryDeleteREQ(deleteAll = true, req_id = "", name = "") {
+async function tryDeleteREQ(deleteAll = true, req_id = "", bankName = "") {
   try {
     const banks = JSON.parse(await AsyncStorage.getItem("linked_banks"));
     if (!banks?.length) {
       console.log("No linked banks found");
       return;
-    }
+    } else console.log("Linked banks: ", banks);
 
     if (deleteAll) {
       for (const bankName of banks) {
@@ -116,14 +117,62 @@ async function tryDeleteREQ(deleteAll = true, req_id = "", name = "") {
     }
 
     console.log(await deleteREQ(req_id));
-    await AsyncStorage.removeItem(name);
-    const bIndex = banks.findIndex((bank) => bank === name);
+    await AsyncStorage.removeItem(bankName);
+    console.log(`${bankName} info deleted`);
+    const bIndex = banks.findIndex((bank) => bank === bankName);
     if (bIndex >= 0) {
       banks.splice(bIndex, 1);
       if (banks.length > 0) {
         await AsyncStorage.setItem("linked_banks", JSON.stringify(banks));
-      } else await AsyncStorage.removeItem("linked_banks");
+        console.log(`${bankName} removed from linked_banks local storage`);
+      } else {
+        await AsyncStorage.removeItem("linked_banks");
+        console.log("Last linked bank deleted. Removing linked_banks");
+      }
     }
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+async function saveBank(
+  bankName,
+  bankLogoUrl,
+  aspsp_id,
+  accounts,
+  ownerName,
+  eua_id,
+  eua_created,
+  eua_validFor,
+  req_id
+) {
+  try {
+    const banks = (await getLinkedBanks()) ?? [];
+    const updating = banks.includes(bankName);
+
+    if (!updating)
+      await AsyncStorage.setItem(
+        "linked_banks",
+        JSON.stringify(!banks.length ? [bankName] : [...banks, bankName])
+      );
+
+    const bankToSave = {
+      bankName,
+      bankLogoUrl,
+      aspsp_id,
+      eua_id,
+      eua_created,
+      eua_validFor,
+      req_id,
+      accounts,
+      ownerName,
+    };
+
+    await AsyncStorage.setItem(bankName, JSON.stringify(bankToSave));
+    console.log(
+      updating ? "Bank info updated locally" : "Bank saved to storage:",
+      bankToSave
+    );
   } catch (e) {
     console.warn(e);
   }
@@ -159,8 +208,6 @@ function Overview({ navigation, route }) {
         if (!banks) return;
         let accountsToBeSet = [];
         for (const bank of banks) {
-          if (accountsToBeSet.findIndex((a) => a.bankName === bank) >= 0)
-            continue;
           const bankInfo = await getBankFromStorage(bank);
           const {
             accounts: accs,
@@ -168,6 +215,10 @@ function Overview({ navigation, route }) {
             bankLogoUrl: logo,
             req_id,
             eua_id,
+            aspsp_id,
+            eua_created,
+            eua_validFor,
+            ownerName,
           } = bankInfo;
 
           let bankToAdd = {
@@ -175,6 +226,10 @@ function Overview({ navigation, route }) {
             logo,
             req_id,
             eua_id,
+            aspsp_id,
+            eua_created,
+            eua_validFor,
+            ownerName,
           };
 
           let accsToAdd = [];
@@ -566,7 +621,7 @@ function Overview({ navigation, route }) {
 function AddAccount({ navigation, route }) {
   const { colorMode } = useColorMode();
 
-  const [loadingLink, setLoadingLink] = useState(false);
+  const [loadingLink, setLoadingLink] = useState("");
 
   const eua = useRef(null);
   const req = useRef(null);
@@ -587,15 +642,21 @@ function AddAccount({ navigation, route }) {
 
   /**
    * Handles all logic behind adding the bank account
-   * @param {{bic: string, countries: string[], id: string, logo: string, name: string, transaction_total_days: string}[]} bank Bank
+   * @param {{bic: string, countries: string[], id: string, logo: string, name: string, transaction_total_days: string}} bank Bank
    */
   async function handleBankSelect(bank) {
     try {
       const mBank = await getBankFromStorage(bank.name);
       if (!!mBank) {
         console.log(mBank);
+        Alert.alert(
+          "Linked Account",
+          "You have already linked this bank account."
+        );
         return;
       }
+
+      setLoadingLink(bank.name);
 
       eua.current = await createEUA(bank.transaction_total_days, bank.id);
       if (eua.current.status_code) {
@@ -623,9 +684,10 @@ function AddAccount({ navigation, route }) {
   }
 
   async function handleRedirect(event) {
+    setLoadingLink("");
     let data = Linking.parse(event.url);
 
-    const qIndex = data.queryParams?.id.indexOf("?");
+    const qIndex = data?.queryParams?.id?.indexOf("?");
     if (qIndex >= 0)
       data.queryParams.id = data.queryParams.id.substr(0, qIndex);
 
@@ -640,44 +702,14 @@ function AddAccount({ navigation, route }) {
       data.queryParams.logo,
       data.queryParams.id,
       accounts,
-      ownerName
+      ownerName,
+      eua.current.id,
+      eua.current.created,
+      eua.current.access_valid_for_days,
+      req.current.id
     );
 
     navigation.navigate("Overview", { newAccountLinked: true });
-  }
-
-  async function saveBank(
-    bankName,
-    bankLogoUrl,
-    aspsp_id,
-    accounts,
-    ownerName
-  ) {
-    try {
-      const banks = await getLinkedBanks();
-
-      if (banks.includes(bankName)) return;
-
-      await AsyncStorage.setItem(
-        "linked_banks",
-        JSON.stringify(!banks ? [bankName] : [...banks, bankName])
-      );
-
-      const bankToSave = {
-        bankName,
-        bankLogoUrl,
-        aspsp_id,
-        eua_id: eua.current.id,
-        req_id: req.current.id,
-        accounts,
-        ownerName,
-      };
-
-      await AsyncStorage.setItem(bankName, JSON.stringify(bankToSave));
-      console.log("Bank saved to storage:", bankToSave);
-    } catch (e) {
-      console.warn(e);
-    }
   }
 
   /**
@@ -687,18 +719,26 @@ function AddAccount({ navigation, route }) {
   const renderBank = ({ item }) => {
     return (
       <TouchableOpacity onPress={() => handleBankSelect(item)}>
-        <Box flexDirection="row" alignItems="center" w={wp(90)}>
-          <Image
-            alt={item.name}
-            source={{ uri: item.logo }}
-            w={wp(14)}
-            h={wp(14)}
-            borderRadius={15}
-            m={2}
-          />
-          <Text fontSize="lg" fontWeight="bold" ml={3}>
-            {item.name}
-          </Text>
+        <Box
+          flexDirection="row"
+          alignItems="center"
+          w={wp(90)}
+          justifyContent="space-between"
+        >
+          <Box flexDirection="row" alignItems="center">
+            <Image
+              alt={item.name}
+              source={{ uri: item.logo }}
+              w={wp(14)}
+              h={wp(14)}
+              borderRadius={15}
+              m={2}
+            />
+            <Text fontSize="lg" fontWeight="bold" ml={3}>
+              {item.name}
+            </Text>
+          </Box>
+          {loadingLink === item.name && <Spinner size="lg" />}
         </Box>
       </TouchableOpacity>
     );
@@ -732,14 +772,14 @@ function AddAccount({ navigation, route }) {
         </Text>
         <TouchableOpacity
           onPress={() => {
-            if (TEST) tryDeleteREQ();
+            if (TEST.DeleteAllButton) tryDeleteREQ();
           }}
         >
           <Icon
             size="lg"
             as={<Ionicons name="chevron-back" />}
             color={
-              TEST
+              TEST.DeleteAllButton
                 ? "danger.500"
                 : colorMode === "dark"
                 ? "background.main"
@@ -861,9 +901,9 @@ function LinkedAccounts({ navigation, route }) {
         <Box w={wp(90)}>
           {route.params?.accounts?.length > 0 && (
             <FlatList
+              data={route.params.accounts}
               mb={100}
               ItemSeparatorComponent={() => <Divider my={3} />}
-              data={route.params.accounts}
               keyExtractor={(item, index) => `${item}-${index}`}
               showsVerticalScrollIndicator={false}
               renderItem={renderBank}
@@ -901,16 +941,22 @@ function LinkedAccounts({ navigation, route }) {
 function BankDetails({ navigation, route }) {
   const background = useColorModeValue("backgroundLight", "background");
   const { colorMode } = useColorMode();
+  const [item, setItem] = useState(route.params.item);
 
-  const item = route.params.item;
-
-  const TEST = false;
+  const eua = useRef(null);
+  const req = useRef(null);
 
   const [sectionedData, setSectionedData] = useState(null);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [shouldFetch, setShouldFetch] = useState(false);
 
   const updatedLast = useRef("Just updated");
+  const linkedFor = useRef(
+    item.eua_validFor -
+      Math.floor(
+        (new Date() - new Date(item.eua_created)) / (1000 * 60 * 60 * 24)
+      )
+  );
 
   function AppBar() {
     return (
@@ -987,7 +1033,14 @@ function BankDetails({ navigation, route }) {
   }
 
   useEffect(() => {
-    if (TEST) {
+    // console.log(item);
+
+    Linking.addEventListener("url", handleRedirect);
+    return () => Linking.removeEventListener("url", handleRedirect);
+  }, []);
+
+  useEffect(() => {
+    if (TEST.TestTransactions) {
       if (loadingTransactions) {
         setLoadingTransactions(false);
         setSectionedData(prepareData(transactions));
@@ -998,7 +1051,7 @@ function BankDetails({ navigation, route }) {
     if (status === "idle") {
       (async function () {
         const cachedTransactions = JSON.parse(
-          await AsyncStorage.getItem("cached_transactions")
+          await AsyncStorage.getItem(`cached_transactions__${item.bankName}`)
         );
 
         const hourPassed_SinceLastFetch =
@@ -1012,6 +1065,7 @@ function BankDetails({ navigation, route }) {
 
         if (!cachedTransactions || hourPassed_SinceLastFetch) {
           setShouldFetch(true);
+          console.log("Will try to fetch transactions");
         } else {
           setSectionedData(prepareData(cachedTransactions));
           setLoadingTransactions(false);
@@ -1020,18 +1074,97 @@ function BankDetails({ navigation, route }) {
     } else if (status === "fetched") {
       const uData = prepareData(data);
       const dataToStore = { ...data, created: new Date().getTime() };
-      AsyncStorage.setItem("cached_transactions", JSON.stringify(dataToStore));
+      AsyncStorage.setItem(
+        `cached_transactions__${item.bankName}`,
+        JSON.stringify(dataToStore)
+      );
       setSectionedData(uData);
       setLoadingTransactions(false);
       updatedLast.current = "Just updated";
+    } else if (status === "error") {
+      console.log("Could not fetch transactions ", error);
     }
   }, [status]);
+
+  async function handleRelinkRequest() {
+    try {
+      const { transaction_total_days, name, id, logo } = await getASPSPSDetails(
+        item.aspsp_id
+      );
+
+      eua.current = await createEUA(transaction_total_days, item.aspsp_id);
+      if (eua.current.status_code) {
+        console.warn(eua.current);
+        return;
+      }
+
+      const redirect = Linking.makeUrl("bankdetails", {
+        name,
+        logo,
+        id,
+      });
+
+      req.current = await createREQ(eua.current.id, redirect);
+      if (req.current.status_code) {
+        console.warn(req.current);
+        return;
+      }
+
+      const { initiate: link } = await createLINK(req.current.id, id);
+      Linking.openURL(link);
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  async function handleRedirect(event) {
+    let data = Linking.parse(event.url);
+    if (!data) return;
+
+    const qIndex = data.queryParams?.id?.indexOf("?");
+    if (qIndex >= 0)
+      data.queryParams.id = data.queryParams.id.substr(0, qIndex);
+
+    const { accounts } = await listAccounts(req.current.id);
+
+    const {
+      account: { ownerName },
+    } = await getDetails(accounts[0]);
+
+    await tryDeleteREQ(false, item.req_id, data.queryParams.name);
+
+    linkedFor.current = eua.current.access_valid_for_days;
+    setItem({
+      bankName: data.queryParams.name,
+      logo: data.queryParams.logo,
+      req_id: req.current.id,
+      eua_id: eua.current.id,
+      aspsp_id: data.queryParams.id,
+      eua_created: eua.current.created,
+      eua_validFor: eua.current.access_valid_for_days,
+      ownerName,
+      accounts,
+    });
+
+    await saveBank(
+      data.queryParams.name,
+      data.queryParams.logo,
+      data.queryParams.id,
+      accounts,
+      ownerName,
+      eua.current.id,
+      eua.current.created,
+      eua.current.access_valid_for_days,
+      req.current.id
+    );
+  }
 
   /**
    * Prepares data for the sectioned list - divides transactions into arrays by months
    * @param {{transactions: {booked: {currencyExchange?: {exchangeRate: string, instructedAmount: {amount: string, currency: string}, sourceCurrency: string, targetCurrency: string, unitCurrency: string}, transactionId: string, bookingDate: string, transactionAmount: {amount: string, currency: string}, debtorName: string, debtorAccount: {bban: string}, remittanceInformationUnstructuredArray: string[], proprietaryBankTransactionCode: string, valueDate: string}[], pending: {currencyExchange?: {exchangeRate: string, instructedAmount: {amount: string, currency: string}, sourceCurrency: string, targetCurrency: string, unitCurrency: string}, transactionId: string, bookingDate: string, transactionAmount: {amount: string, currency: string}, debtorName: string, debtorAccount: {bban: string}, remittanceInformationUnstructuredArray: string[], proprietaryBankTransactionCode: string}[]}}} data
    */
   function prepareData(data) {
+    if (!data) return [];
     let uData = [];
     for (const transaction of data.transactions.booked) {
       const cDate = new Date(transaction.bookingDate);
@@ -1108,7 +1241,7 @@ function BankDetails({ navigation, route }) {
             text: "Yes",
             onPress: async () => {
               await tryDeleteREQ(false, item.req_id, item.bankName);
-              navigation.navigate("Overview", { refresh: true });
+              navigation.navigate("Overview", { [item.req_id]: "deleted" });
             },
           },
         ],
@@ -1123,7 +1256,7 @@ function BankDetails({ navigation, route }) {
    * @param {{item: { pending: boolean, date: Date, type: string, info: string[], amount: {amount: string, currency: string}, currencyExchange: {exchangeRate: string, instructedAmount: {amount: string, currency: string}, sourceCurrency: string, targetCurrency: string} }}}
    * @returns {JSX.Element}
    */
-  const renderTransaction = ({ item }) => {
+  const renderTransaction = ({ item, index }) => {
     const currencyFormat = new Intl.NumberFormat("en-GB", {
       style: "currency",
       currency: item.amount.currency,
@@ -1214,8 +1347,15 @@ function BankDetails({ navigation, route }) {
                 </Text>
               ))}
 
-            <Box mt={5} borderRadius={15} bg="white" w={wp(90)} h={hp(30)}>
-              <Box alignItems="center" flexDirection="row" px={2} py={3}>
+            <Box
+              mt={5}
+              borderRadius={15}
+              bg="white"
+              w={wp(90)}
+              h={hp(30)}
+              p={5}
+            >
+              <Box alignItems="center" flexDirection="row" py={2}>
                 <Image
                   source={{ uri: item.logo }}
                   borderTopLeftRadius={15}
@@ -1227,10 +1367,18 @@ function BankDetails({ navigation, route }) {
                   <Text fontWeight={300} color="background.main">
                     Account owner
                   </Text>
-                  <Text fontWeight="bold" fontSize="lg" color="background.main">
+                  <Text fontWeight={800} fontSize="xl" color="background.main">
                     {item.ownerName ?? "Dominykas Gudauskas"}
                   </Text>
                 </Box>
+              </Box>
+              <Box py={5}>
+                <Text fontWeight={300} color="background.main">
+                  Account link status
+                </Text>
+                <Text fontWeight={800} fontSize="xl" color="background.main">
+                  Linked for {linkedFor.current} days
+                </Text>
               </Box>
             </Box>
 
@@ -1277,8 +1425,15 @@ function BankDetails({ navigation, route }) {
                     </Text>
                   ))}
 
-                <Box mt={5} borderRadius={15} bg="white" w={wp(90)} h={hp(30)}>
-                  <Box alignItems="center" flexDirection="row" px={2} py={3}>
+                <Box
+                  mt={5}
+                  borderRadius={15}
+                  bg="white"
+                  w={wp(90)}
+                  h={hp(30)}
+                  p={5}
+                >
+                  <Box alignItems="center" flexDirection="row" py={2}>
                     <Image
                       source={{ uri: item.logo }}
                       borderTopLeftRadius={15}
@@ -1291,15 +1446,45 @@ function BankDetails({ navigation, route }) {
                         Account owner
                       </Text>
                       <Text
-                        fontWeight="bold"
-                        fontSize="lg"
+                        fontWeight={800}
+                        fontSize="xl"
                         color="background.main"
                       >
                         {item.ownerName ?? "Dominykas Gudauskas"}
                       </Text>
                     </Box>
                   </Box>
+                  <Box py={5}>
+                    <Text fontWeight={300} color="background.main">
+                      Account link status
+                    </Text>
+                    <Text
+                      fontWeight={800}
+                      fontSize="xl"
+                      color="background.main"
+                    >
+                      Linked for {linkedFor.current} days
+                    </Text>
+                  </Box>
+                  <Box alignSelf="center" pt={5}>
+                    <AwesomeButton
+                      onPress={handleRelinkRequest}
+                      width={wp(50)}
+                      height={50}
+                      borderRadius={25}
+                      borderWidth={1}
+                      borderColor={theme.colors.backgroundLight.dark}
+                      backgroundColor={theme.colors.backgroundLight.main}
+                      backgroundDarker={theme.colors.backgroundLight.darker}
+                      raiseLevel={3}
+                    >
+                      <Text color="background.main">
+                        Get me back to 90 days
+                      </Text>
+                    </AwesomeButton>
+                  </Box>
                 </Box>
+
                 <Box
                   flexDirection="row"
                   alignSelf="flex-start"

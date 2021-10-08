@@ -6,7 +6,7 @@ import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
 } from "react-native-responsive-screen";
-import { navigatorOptions, theme, MONTHS } from "../config/constants";
+import { navigatorOptions, theme, MONTHS, TEST } from "../config/constants";
 import { takePicture, pickImage } from "../api/ImagePicker";
 import { uploadImage } from "../api/ImageUpload";
 import { LogBox, ScrollView, TouchableOpacity } from "react-native";
@@ -28,8 +28,6 @@ import {
   Modal,
 } from "native-base";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const TESTMODE = false;
 
 LogBox.ignoreLogs(["Setting a timer", "VirtualizedLists"]);
 
@@ -103,7 +101,7 @@ function BillScanner({ navigation }) {
 
   async function submitToGoogle() {
     try {
-      if (TESTMODE) {
+      if (TEST.TestBill) {
         const testResponse = {
           date: "04/09/21",
           items: [

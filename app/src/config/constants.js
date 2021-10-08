@@ -248,3 +248,10 @@ export const FREQUENCIES = {
   Quarterly: "Quarterly",
   Annually: "Annually",
 };
+export const TEST = {
+  TestTransactions: false,
+  NordigenSandbox: false,
+  DeleteAllButton: false,
+  TestBill: false,
+  AlwaysShowIntro: false,
+};

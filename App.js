@@ -21,11 +21,10 @@ import {
   Roboto_900Black_Italic,
 } from "@expo-google-fonts/roboto";
 
-import { theme } from "./app/src/config/constants";
+import { TEST, theme } from "./app/src/config/constants";
 import { firebaseConfig } from "./app/src/config/secret";
 
 import firebase from "firebase/app";
-import { Linking } from "react-native";
 
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 
@@ -46,8 +45,6 @@ const colorModeManager = {
     }
   },
 };
-
-const TEST = false;
 
 export default function Wrapper() {
   const [showIntro, setShowIntro] = useState(null);
@@ -77,7 +74,7 @@ export default function Wrapper() {
 
   function handleIntro() {
     setShowIntro(!i.current ? "yes" : "no");
-    if (TEST) AsyncStorage.removeItem("introDone");
+    if (TEST.AlwaysShowIntro) AsyncStorage.removeItem("introDone");
   }
 
   useEffect(() => {

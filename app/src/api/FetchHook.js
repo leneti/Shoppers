@@ -40,8 +40,6 @@ export const useFetch = ({
     let cancelRequest = false;
     if (!url || !shouldFetch) return;
 
-    console.log("Fetching transactions");
-
     const fetchData = async () => {
       dispatch({ type: "FETCHING" });
       if (cache.current[url]) {
