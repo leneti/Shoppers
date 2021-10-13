@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AwesomeButton from "@umangmaurya/react-native-really-awesome-button";
@@ -28,6 +28,7 @@ import {
   Modal,
 } from "native-base";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import LottieView from "lottie-react-native";
 
 LogBox.ignoreLogs(["Setting a timer", "VirtualizedLists"]);
 
@@ -378,7 +379,24 @@ function BillScanner({ navigation }) {
             </Text>
           </AwesomeButton>
         </Box>
-        <Text mt={3}>{progressText}</Text>
+        <Box flexDirection="row" alignItems="center">
+          <Text mt={3}>{progressText}</Text>
+          <Box w={wp(20)} h={wp(20)}>
+            {progressText === "Uploading image to Firebase..." ? (
+              <LottieView
+                autoPlay
+                loop
+                source={require("../components/Lottie/uploading.json")}
+              />
+            ) : progressText === "Parsing the image..." ? (
+              <LottieView
+                autoPlay
+                loop
+                source={require("../components/Lottie/parsing.json")}
+              />
+            ) : null}
+          </Box>
+        </Box>
       </Box>
     ) : null;
   };
@@ -1119,25 +1137,25 @@ function BillCalculator({
       <Box variant="background" flex={1} pt={10} alignItems="center">
         <Total name="dom" />
         <Total name="em" />
-      </Box>
-      <Box pos="absolute" mb={5} bottom={0}>
-        <AwesomeButton
-          onPress={() => navigation.navigate("BillScanner")}
-          width={wp(70)}
-          height={50}
-          borderRadius={25}
-          borderWidth={1}
-          borderColor={
-            colorMode === "dark"
-              ? theme.colors.primary[500]
-              : theme.colors.backgroundLight.dark
-          }
-          backgroundColor={theme.colors[background].main}
-          backgroundDarker={theme.colors[background].darker}
-          raiseLevel={3}
-        >
-          <Text _dark={{ color: "primary.400" }}>Done</Text>
-        </AwesomeButton>
+        <Box pos="absolute" mb={5} bottom={0}>
+          <AwesomeButton
+            onPress={() => navigation.navigate("BillScanner")}
+            width={wp(70)}
+            height={50}
+            borderRadius={25}
+            borderWidth={1}
+            borderColor={
+              colorMode === "dark"
+                ? theme.colors.primary[500]
+                : theme.colors.backgroundLight.dark
+            }
+            backgroundColor={theme.colors[background].main}
+            backgroundDarker={theme.colors[background].darker}
+            raiseLevel={3}
+          >
+            <Text _dark={{ color: "primary.400" }}>Done</Text>
+          </AwesomeButton>
+        </Box>
       </Box>
     </>
   );
@@ -1160,6 +1178,17 @@ function History({ navigation }) {
         querySnapshot.forEach((doc) =>
           arr.push({ id: doc.id, data: doc.data() })
         );
+        arr.sort((a, b) => {
+          const adu = a.data.date.split("/"); // a date unformated
+          const bdu = b.data.date.split("/"); // b date unformated
+          const aDate = new Date(
+            `20${adu[2]}-${adu[1]}-${adu[0]}T${a.data.time}`
+          );
+          const bDate = new Date(
+            `20${bdu[2]}-${bdu[1]}-${bdu[0]}T${b.data.time}`
+          );
+          return bDate - aDate;
+        });
         setBills(arr);
       });
   }, []);
@@ -1201,9 +1230,9 @@ function History({ navigation }) {
         .toFixed(2);
 
     const listCount =
-      selectedItem.emilija?.length === 0 && selectedItem.dom?.length === 0
+      !selectedItem.emilija?.length && !selectedItem.dom?.length
         ? 1
-        : selectedItem.emilija?.length === 0 || selectedItem.dom?.length === 0
+        : !selectedItem.emilija?.length || !selectedItem.dom?.length
         ? 2
         : 3;
 
@@ -1386,8 +1415,8 @@ function History({ navigation }) {
                 <Text _dark={{ color: "primary.500" }}>
                   {item.data.market}
                   {" – "}
-                  {MONTHS[parseInt(item.data.date.substr(3, 2)) - 1]}{" "}
-                  {item.data.date.substr(0, 2)}
+                  {MONTHS[parseInt(item.data.date?.substr(3, 2)) - 1]}{" "}
+                  {item.data.date?.substr(0, 2)}
                 </Text>
               </Box>
             </Pressable>

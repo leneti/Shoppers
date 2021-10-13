@@ -74,6 +74,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import currency from "currency.js";
 import { transactions } from "../config/testTransactions";
+import { guessImage } from "../api/TransactionCategorisation";
 
 /* #region  Helpers */
 /**
@@ -183,6 +184,8 @@ function Overview({ navigation, route }) {
   const background = useColorModeValue("backgroundLight", "background");
   const { colorMode } = useColorMode();
 
+  const [refresh, setRefresh] = useState(false);
+
   const [accounts, setAccounts] = useState([]);
   const [bills, setBills] = useState([]);
   const [loadingBills, setLoadingBills] = useState(true);
@@ -269,6 +272,12 @@ function Overview({ navigation, route }) {
         setLoadingAccounts(false);
       }
     })();
+  }, [route]);
+
+  useEffect(() => {
+    if (route.params?.refresh) {
+      // TO-DO: Fix refreshing overview page
+    }
   }, [route]);
 
   const renderAccount = ({ item }) => {
@@ -953,7 +962,7 @@ function BankDetails({ navigation, route }) {
   const updatedLast = useRef("Just updated");
   const linkedFor = useRef(
     item.eua_validFor -
-      Math.floor(
+      Math.ceil(
         (new Date() - new Date(item.eua_created)) / (1000 * 60 * 60 * 24)
       )
   );
@@ -1264,9 +1273,12 @@ function BankDetails({ navigation, route }) {
     });
     let amount = currencyFormat.format(item.amount.amount);
     let amountColor = colorMode === "dark" ? "white" : "backgroundLight.dark";
+    let image;
     if (amount.includes("-")) {
+      image = guessImage(item.info);
       amount = amount.replace("-", "");
     } else {
+      image = require("../../res/icons/028-money.png");
       amount = `+${amount}`;
       amountColor = colorMode === "dark" ? "success.300" : "success.600";
     }
@@ -1278,7 +1290,20 @@ function BankDetails({ navigation, route }) {
         alignItems="center"
       >
         <Box flexDirection="row" alignItems="center">
-          <Box w={wp(10)} h={wp(10)} bg="#999" rounded="full" />
+          <Box
+            borderRadius={wp(6)}
+            borderColor="gray.500"
+            borderWidth={1}
+            bg={
+              theme.colors[background][colorMode === "dark" ? "mainl" : "maind"]
+            }
+            w={wp(10)}
+            h={wp(10)}
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Image alt={item.info[0]} source={image} size={wp(7)} />
+          </Box>
           <Box ml={3}>
             <Text fontWeight="bold">{item.info[0]}</Text>
             {item.info.length > 1 && (
