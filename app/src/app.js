@@ -13,6 +13,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import BillScanner from "./tabs/BillScanner";
 import Profile from "./tabs/Profile";
 import Finances from "./tabs/FinanceTracker";
+import ShoppingList from "./tabs/ShoppingList";
+
 import {
   heightPercentageToDP as hp,
   widthPercentageToDP as wp,
@@ -218,6 +220,15 @@ function Main() {
         options={{
           tabBarIcon: ({ color }) => (
             <Ionicons name="scan" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Shopping"
+        component={ShoppingList}
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="list" size={24} color={color} />
           ),
         }}
       />

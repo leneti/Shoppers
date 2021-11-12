@@ -29,6 +29,7 @@ import {
 } from "native-base";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
+import { TouchableWithoutFeedback } from "react-native-gesture-handler";
 
 LogBox.ignoreLogs(["Setting a timer", "VirtualizedLists"]);
 
@@ -39,6 +40,8 @@ function BillScanner({ navigation }) {
   const [analyse, setAnalyse] = useState(false);
   const [image, setImage] = useState(null);
   const [progressText, setProgressText] = useState("");
+
+  const analysisRef = useRef();
 
   function handlePickedImage(pickerResult) {
     if (!pickerResult.cancelled) {
@@ -441,97 +444,113 @@ function BillScanner({ navigation }) {
       <AppBar />
       <Box
         flex={1}
-        pt={10}
         alignItems="center"
         justifyContent="space-between"
         variant="background"
       >
         {!image && (
-          <Box
-            alignItems="center"
-            w={wp(75)}
-            p={7}
-            borderRadius={20}
-            borderWidth={2}
-            _light={{
-              bg: "backgroundLight.main",
-              borderColor: "backgroundLight.dark",
-            }}
-            _dark={{ bg: "background.main", borderColor: "primary.600" }}
-            zIndex={100}
-          >
-            <Text numberOfLines={2} textAlign="center" fontSize="lg" mb={5}>
-              Select how you would like to analyse the bill:
-            </Text>
+          <Box pt={10} alignItems="center" justifyContent="space-between">
             <Box
-              justifyContent="space-between"
-              flexDirection="row"
-              width="100%"
+              alignItems="center"
+              w={wp(75)}
+              p={7}
+              borderRadius={20}
+              borderWidth={2}
+              _light={{
+                bg: "backgroundLight.main",
+                borderColor: "backgroundLight.dark",
+              }}
+              _dark={{ bg: "background.main", borderColor: "primary.600" }}
+              zIndex={100}
             >
-              <AwesomeButton
-                progress
-                onPress={async (next) => {
-                  handlePickedImage(await takePicture());
-                  next();
-                }}
-                width={wp(25)}
-                height={50}
-                borderRadius={25}
-                borderWidth={1}
-                borderColor={
-                  colorMode === "dark"
-                    ? theme.colors.primary[500]
-                    : theme.colors.backgroundLight.dark
-                }
-                backgroundColor={theme.colors[background].main}
-                backgroundDarker={theme.colors[background].darker}
-                raiseLevel={3}
+              <Text numberOfLines={2} textAlign="center" fontSize="lg" mb={5}>
+                Select how you would like to analyse the bill:
+              </Text>
+              <Box
+                justifyContent="space-between"
+                flexDirection="row"
+                width="100%"
               >
-                <Icon
-                  _light={{ name: "camera" }}
-                  _dark={{ name: "camera-outline" }}
-                  as={<Ionicons />}
-                  size="sm"
-                  color="primary.500"
-                />
-
-                <Text _dark={{ color: "primary.400" }} ml={2}>
-                  Scan
-                </Text>
-              </AwesomeButton>
-              <AwesomeButton
-                progress
-                onPress={async (next) => {
-                  handlePickedImage(await pickImage());
-                  next();
-                }}
-                width={wp(25)}
-                height={50}
-                borderRadius={25}
-                borderWidth={1}
-                borderColor={
-                  colorMode === "dark"
-                    ? theme.colors.primary[500]
-                    : theme.colors.backgroundLight.dark
-                }
-                backgroundColor={theme.colors[background].main}
-                backgroundDarker={theme.colors[background].darker}
-                raiseLevel={3}
-              >
-                <Icon
-                  as={
-                    <Ionicons
-                      name={useColorModeValue("images", "images-outline")}
-                    />
+                <AwesomeButton
+                  progress
+                  onPress={async (next) => {
+                    handlePickedImage(await takePicture());
+                    next();
+                  }}
+                  width={wp(25)}
+                  height={50}
+                  borderRadius={25}
+                  borderWidth={1}
+                  borderColor={
+                    colorMode === "dark"
+                      ? theme.colors.primary[500]
+                      : theme.colors.backgroundLight.dark
                   }
-                  size="sm"
-                  color="primary.500"
-                />
-                <Text _dark={{ color: "primary.400" }} ml={2}>
-                  Pick
-                </Text>
-              </AwesomeButton>
+                  backgroundColor={theme.colors[background].main}
+                  backgroundDarker={theme.colors[background].darker}
+                  raiseLevel={3}
+                >
+                  <Icon
+                    _light={{ name: "camera" }}
+                    _dark={{ name: "camera-outline" }}
+                    as={<Ionicons />}
+                    size="sm"
+                    color="primary.500"
+                  />
+
+                  <Text _dark={{ color: "primary.400" }} ml={2}>
+                    Scan
+                  </Text>
+                </AwesomeButton>
+                <AwesomeButton
+                  progress
+                  onPress={async (next) => {
+                    handlePickedImage(await pickImage());
+                    next();
+                  }}
+                  width={wp(25)}
+                  height={50}
+                  borderRadius={25}
+                  borderWidth={1}
+                  borderColor={
+                    colorMode === "dark"
+                      ? theme.colors.primary[500]
+                      : theme.colors.backgroundLight.dark
+                  }
+                  backgroundColor={theme.colors[background].main}
+                  backgroundDarker={theme.colors[background].darker}
+                  raiseLevel={3}
+                >
+                  <Icon
+                    as={
+                      <Ionicons
+                        name={useColorModeValue("images", "images-outline")}
+                      />
+                    }
+                    size="sm"
+                    color="primary.500"
+                  />
+                  <Text _dark={{ color: "primary.400" }} ml={2}>
+                    Pick
+                  </Text>
+                </AwesomeButton>
+              </Box>
             </Box>
+            <TouchableWithoutFeedback
+              onPress={() => {
+                analysisRef.current.reset();
+                analysisRef.current.play();
+              }}
+            >
+              <Box w={wp(100)} h={wp(100)}>
+                <LottieView
+                  ref={analysisRef}
+                  autoPlay
+                  loop={false}
+                  source={require("../components/Lottie/searching.json")}
+                />
+              </Box>
+            </TouchableWithoutFeedback>
           </Box>
         )}
         <ScrollView

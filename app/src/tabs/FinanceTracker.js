@@ -75,6 +75,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import currency from "currency.js";
 import { transactions } from "../config/testTransactions";
 import { guessImage } from "../api/TransactionCategorisation";
+import LottieView from "lottie-react-native";
 
 /* #region  Helpers */
 /**
@@ -184,12 +185,14 @@ function Overview({ navigation, route }) {
   const background = useColorModeValue("backgroundLight", "background");
   const { colorMode } = useColorMode();
 
-  const [refresh, setRefresh] = useState(false);
+  const [_, setRefresh] = useState(false);
 
   const [accounts, setAccounts] = useState([]);
   const [bills, setBills] = useState([]);
   const [loadingBills, setLoadingBills] = useState(true);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
+
+  const walletRef = useRef();
 
   useEffect(() => {
     if (bills.length === 0)
@@ -275,9 +278,7 @@ function Overview({ navigation, route }) {
   }, [route]);
 
   useEffect(() => {
-    if (route.params?.refresh) {
-      // TO-DO: Fix refreshing overview page
-    }
+    if (route.params?.refresh) setRefresh((p) => !p);
   }, [route]);
 
   const renderAccount = ({ item }) => {
@@ -488,6 +489,21 @@ function Overview({ navigation, route }) {
       <Text fontSize="2xl" fontWeight="bold" pt={3}>
         Overview
       </Text>
+      <TouchableWithoutFeedback
+        onPress={() => {
+          walletRef.current.reset();
+          walletRef.current.play();
+        }}
+      >
+        <Box w={wp(100)} h={wp(56.25)}>
+          <LottieView
+            ref={walletRef}
+            autoPlay
+            loop={false}
+            source={require("../components/Lottie/wallet.json")}
+          />
+        </Box>
+      </TouchableWithoutFeedback>
       <Box mt={5} alignItems="center">
         <Box
           flexDirection="row"
@@ -718,7 +734,7 @@ function AddAccount({ navigation, route }) {
       req.current.id
     );
 
-    navigation.navigate("Overview", { newAccountLinked: true });
+    navigation.navigate("Overview", { refresh: Math.random() });
   }
 
   /**
@@ -955,6 +971,8 @@ function BankDetails({ navigation, route }) {
   const eua = useRef(null);
   const req = useRef(null);
 
+  const menuRef = useRef();
+
   const [sectionedData, setSectionedData] = useState(null);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [shouldFetch, setShouldFetch] = useState(false);
@@ -995,15 +1013,49 @@ function BankDetails({ navigation, route }) {
         </Text>
         <Menu
           w={wp(25)}
+          onOpen={() => {
+            menuRef.current.reset();
+            menuRef.current.play(0, 70);
+          }}
+          onClose={() => {
+            menuRef.current.reset();
+            menuRef.current.play(70, 140);
+          }}
           trigger={(triggerProps) => {
             return (
               <TouchableOpacity {...triggerProps}>
-                <Icon
-                  size="md"
-                  as={<MaterialCommunityIcons name="dots-vertical" />}
-                  _light={{ color: "primary.600" }}
-                  _dark={{ color: "backgroundLight.main" }}
-                />
+                <Box w={wp(10)} h={wp(10)}>
+                  <LottieView
+                    ref={menuRef}
+                    speed={2}
+                    autoPlay={false}
+                    loop={false}
+                    source={require("../components/Lottie/menu-to-x.json")}
+                    colorFilters={[
+                      {
+                        keypath: "Buttom",
+                        color:
+                          colorMode === "dark"
+                            ? "white"
+                            : theme.colors.primary[600],
+                      },
+                      {
+                        keypath: "Center",
+                        color:
+                          colorMode === "dark"
+                            ? "white"
+                            : theme.colors.primary[600],
+                      },
+                      {
+                        keypath: "Upper",
+                        color:
+                          colorMode === "dark"
+                            ? "white"
+                            : theme.colors.primary[600],
+                      },
+                    ]}
+                  />
+                </Box>
               </TouchableOpacity>
             );
           }}
@@ -1250,7 +1302,10 @@ function BankDetails({ navigation, route }) {
             text: "Yes",
             onPress: async () => {
               await tryDeleteREQ(false, item.req_id, item.bankName);
-              navigation.navigate("Overview", { [item.req_id]: "deleted" });
+              navigation.navigate("Overview", {
+                [item.req_id]: "deleted",
+                refresh: Math.random(),
+              });
             },
           },
         ],
@@ -1407,16 +1462,17 @@ function BankDetails({ navigation, route }) {
               </Box>
             </Box>
 
-            <Box
-              flexDirection="row"
-              alignSelf="flex-start"
-              alignItems="center"
-              mt={6}
-            >
+            <Box flexDirection="row" alignSelf="flex-start" alignItems="center">
               <Text fontWeight="bold" fontSize="2xl">
                 Latest transactions
               </Text>
-              <Spinner ml={2} size="sm" accessibilityLabel="Loading banks" />
+              <Box w={wp(20)} h={wp(15)}>
+                <LottieView
+                  source={require("../components/Lottie/loading.json")}
+                  autoPlay
+                  loop
+                />
+              </Box>
             </Box>
           </Box>
         ) : (
