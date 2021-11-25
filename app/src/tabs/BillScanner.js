@@ -26,10 +26,14 @@ import {
   useColorModeValue,
   useColorMode,
   Modal,
+  useToast,
+  Button,
 } from "native-base";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
 import { TouchableWithoutFeedback } from "react-native-gesture-handler";
+import AppLink from "react-native-app-link";
+import * as Clipboard from "expo-clipboard";
 
 LogBox.ignoreLogs(["Setting a timer", "VirtualizedLists"]);
 
@@ -576,9 +580,11 @@ function BillSplitter({
 }) {
   const background = useColorModeValue("backgroundLight", "background");
   const { colorMode } = useColorMode();
-  const [common, setCommon] = useState(googleResponse.items);
-  const [emilija, setEmilija] = useState([]);
-  const [dom, setDom] = useState([]);
+  const [common, setCommon] = useState(
+    googleResponse.common ?? googleResponse.items
+  );
+  const [emilija, setEmilija] = useState(googleResponse.emilija ?? []);
+  const [dom, setDom] = useState(googleResponse.dom ?? []);
   const [cExtraData, setCExtraData] = useState(false);
   const [eExtraData, setEExtraData] = useState(false);
   const [dExtraData, setDExtraData] = useState(false);
@@ -985,7 +991,12 @@ function BillSplitter({
     const splitRatio = await AsyncStorage.getItem("splitRatio");
     const domShare = !splitRatio ? 0.6 : parseFloat(splitRatio) / 100;
     const emShare = 1 - domShare;
-    let totals = { both: 0, em: 0, dom: 0, full: googleResponse.total };
+    let totals = {
+      both: 0,
+      em: 0,
+      dom: 0,
+      full: googleResponse.total,
+    };
 
     totals.both += common.reduce((a, c) => a + parseFloat(c.price), 0);
     totals.dom +=
@@ -1016,7 +1027,7 @@ function BillSplitter({
   }
 
   async function handleSplitting(next) {
-    const totals = await calculateTotals();
+    const totals = googleResponse.totals ?? (await calculateTotals());
     updateFirestoreDoc(totals);
     setTimeout(() => {
       next();
@@ -1074,6 +1085,7 @@ function BillCalculator({
 }) {
   const background = useColorModeValue("backgroundLight", "background");
   const { colorMode } = useColorMode();
+  const toast = useToast();
 
   function AppBar() {
     return (
@@ -1105,7 +1117,7 @@ function BillCalculator({
         <Icon
           size="lg"
           as={<Ionicons name="chevron-back" />}
-          _light={{ color: "backgroundLight.maiin" }}
+          _light={{ color: "backgroundLight.main" }}
           _dark={{ color: "background.main" }}
         />
       </HStack>
@@ -1138,14 +1150,24 @@ function BillCalculator({
             ? "Emilija's total: "
             : "Total"}
         </Text>
-        <Text
-          fontSize="3xl"
-          fontWeight="bold"
-          _dark={{ color: "primary.400" }}
-          _light={{ color: "primary.500" }}
-        >
-          £{totals[name].toFixed(2)}
-        </Text>
+        <Box alignItems="center" flexDirection="row">
+          <Text
+            fontSize="3xl"
+            fontWeight="bold"
+            _dark={{ color: "primary.400" }}
+            _light={{ color: "primary.500" }}
+          >
+            £
+          </Text>
+          <Text
+            fontSize="3xl"
+            fontWeight="bold"
+            _dark={{ color: "primary.400" }}
+            _light={{ color: "primary.500" }}
+          >
+            {totals[name].toFixed(2)}
+          </Text>
+        </Box>
       </Box>
     </Box>
   );
@@ -1156,6 +1178,46 @@ function BillCalculator({
       <Box variant="background" flex={1} pt={10} alignItems="center">
         <Total name="dom" />
         <Total name="em" />
+        <AwesomeButton
+          progress
+          progressLoadingTime={1000}
+          style={{ marginTop: hp(5) }}
+          onPress={(next) => {
+            Clipboard.setString(totals.em.toFixed(2));
+            toast.show({
+              description: `${totals.em.toFixed(2)} copied to clipboard`,
+              duration: 1000,
+              onCloseComplete: () => {
+                next();
+                AppLink.maybeOpenURL("splitwise://", {
+                  appName: "Splitwise",
+                  playStoreId: "com.Splitwise.SplitwiseMobile",
+                }).catch(console.log);
+              },
+            });
+          }}
+          width={wp(50)}
+          height={50}
+          borderRadius={25}
+          borderWidth={1}
+          borderColor={
+            colorMode === "dark"
+              ? theme.colors.primary[500]
+              : theme.colors.backgroundLight.dark
+          }
+          backgroundColor={theme.colors[background].main}
+          backgroundDarker={theme.colors[background].darker}
+          raiseLevel={3}
+        >
+          <Icon
+            mr={2}
+            as={<MaterialIcons />}
+            name="call-split"
+            size="md"
+            color="primary.500"
+          />
+          <Text _dark={{ color: "primary.400" }}>To Splitwise</Text>
+        </AwesomeButton>
         <Box pos="absolute" mb={5} bottom={0}>
           <AwesomeButton
             onPress={() => navigation.navigate("BillScanner")}
@@ -1181,9 +1243,12 @@ function BillCalculator({
 }
 
 function History({ navigation }) {
+  const background = useColorModeValue("backgroundLight", "background");
+  const { colorMode } = useColorMode();
   const [bills, setBills] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [alertVis, setAlertVis] = useState(false);
 
   const LISTS = { EMILIJA: "emilija", DOM: "dom", COMMON: "common" };
 
@@ -1239,7 +1304,7 @@ function History({ navigation }) {
   );
 
   const ItemList = ({ list }) => {
-    if (!selectedItem || !selectedItem[list].length) return null;
+    if (!selectedItem || !selectedItem.data[list].length) return null;
     const total = (arr) =>
       arr
         .reduce(
@@ -1249,16 +1314,16 @@ function History({ navigation }) {
         .toFixed(2);
 
     const listCount =
-      !selectedItem.emilija?.length && !selectedItem.dom?.length
+      !selectedItem.data.emilija?.length && !selectedItem.data.dom?.length
         ? 1
-        : !selectedItem.emilija?.length || !selectedItem.dom?.length
+        : !selectedItem.data.emilija?.length || !selectedItem.data.dom?.length
         ? 2
         : 3;
 
     const maxListHeightPercent =
-      selectedItem[list].length < 2
+      selectedItem.data[list].length < 2
         ? hp(14)
-        : selectedItem[list].length < 3
+        : selectedItem.data[list].length < 3
         ? hp(17)
         : listCount === 3
         ? hp(20)
@@ -1300,12 +1365,12 @@ function History({ navigation }) {
             showsVerticalScrollIndicator={false}
             data={
               list === LISTS.EMILIJA
-                ? selectedItem.emilija
+                ? selectedItem.data.emilija
                 : list === LISTS.DOM
-                ? selectedItem.dom
+                ? selectedItem.data.dom
                 : list === LISTS.COMMON
-                ? selectedItem.common
-                : selectedItem.items
+                ? selectedItem.data.common
+                : selectedItem.data.items
             }
             keyExtractor={(item, index) => `${item.name}-${index}`}
             renderItem={renderItem}
@@ -1321,9 +1386,9 @@ function History({ navigation }) {
         >
           <Text fontSize="lg">
             {list === LISTS.DOM
-              ? "Dom's total:"
+              ? "Dom's prelim.:"
               : list === LISTS.EMILIJA
-              ? "Emilija's total"
+              ? "Emilija's prelim.:"
               : "Total price:"}
           </Text>
           <Text
@@ -1334,12 +1399,12 @@ function History({ navigation }) {
           >
             £
             {list === LISTS.COMMON
-              ? total(selectedItem.common)
+              ? total(selectedItem.data.common)
               : list === LISTS.EMILIJA
-              ? total(selectedItem.emilija)
+              ? total(selectedItem.data.emilija)
               : list === LISTS.DOM
-              ? total(selectedItem.dom)
-              : total(selectedItem.items)}
+              ? total(selectedItem.data.dom)
+              : total(selectedItem.data.items)}
           </Text>
         </Box>
       </Box>
@@ -1373,7 +1438,7 @@ function History({ navigation }) {
         <Icon
           size="lg"
           as={<Ionicons name="chevron-back" />}
-          _light={{ color: "backgroundLight.maiin" }}
+          _light={{ color: "backgroundLight.main" }}
           _dark={{ color: "background.main" }}
         />
       </HStack>
@@ -1382,6 +1447,53 @@ function History({ navigation }) {
 
   return (
     <>
+      <Modal isOpen={alertVis} onClose={() => setAlertVis(false)}>
+        <Modal.Content>
+          <Modal.CloseButton />
+          <Modal.Header>
+            <Text bold fontSize="xl">
+              Delete "{selectedItem?.id}"
+            </Text>
+          </Modal.Header>
+          <Modal.Body>
+            Removing all data relating to this calculation cannot be reversed.
+            Deleted data can not be recovered.
+          </Modal.Body>
+          <Modal.Footer>
+            <Button.Group space={2}>
+              <Button
+                variant="unstyled"
+                colorScheme="coolGray"
+                onPress={() => setAlertVis(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                colorScheme="danger"
+                onPress={() => {
+                  firebase
+                    .firestore()
+                    .collection("bills")
+                    .doc(selectedItem?.id)
+                    .delete()
+                    .then(() =>
+                      console.log(`Succesfully deleted ${selectedItem?.id}`)
+                    )
+                    .catch(console.log);
+                  setBills((prev) =>
+                    prev.filter((bill) => bill.id !== selectedItem?.id)
+                  );
+                  setAlertVis(false);
+                  setModalVisible(false);
+                  setSelectedItem(null);
+                }}
+              >
+                Delete
+              </Button>
+            </Button.Group>
+          </Modal.Footer>
+        </Modal.Content>
+      </Modal>
       <Modal
         isOpen={modalVisible}
         onClose={() => {
@@ -1389,17 +1501,21 @@ function History({ navigation }) {
           setSelectedItem(null);
         }}
       >
-        <Modal.Content maxWidth="400px" w={wp(80)}>
+        <Modal.Content
+          maxWidth="400px"
+          w={wp(80)}
+          bg={colorMode === "dark" ? "background.main" : "backgroundLight.main"}
+        >
           <Modal.CloseButton />
           <Modal.Header flexDirection="row" justifyContent="center">
-            {selectedItem?.market}
+            {selectedItem?.data?.market}
             {"  "}
-            {selectedItem?.date}
+            {selectedItem?.data?.date}
             {"  "}
-            {selectedItem?.time}
+            {selectedItem?.data?.time}
           </Modal.Header>
           <Modal.Body alignItems="center">
-            {!selectedItem?.common ? (
+            {!selectedItem?.data?.common ? (
               <ItemList list="items" />
             ) : (
               <>
@@ -1408,18 +1524,125 @@ function History({ navigation }) {
                 <ItemList list={LISTS.EMILIJA} />
               </>
             )}
+
+            <Box py={2}>
+              <Box
+                justifyContent="space-between"
+                alignItems="center"
+                flexDirection="row"
+                w={wp(50)}
+              >
+                <Text fontSize="lg">Dom's total:</Text>
+                <Box alignItems="center" flexDirection="row">
+                  <Text
+                    fontSize="xl"
+                    fontWeight="bold"
+                    _dark={{ color: "primary.400" }}
+                    _light={{ color: "primary.500" }}
+                  >
+                    £
+                  </Text>
+                  <Text
+                    fontSize="xl"
+                    fontWeight="bold"
+                    _dark={{ color: "primary.400" }}
+                    _light={{ color: "primary.500" }}
+                  >
+                    {selectedItem?.data.totals.dom.toFixed(2)}
+                  </Text>
+                </Box>
+              </Box>
+              <Box
+                justifyContent="space-between"
+                alignItems="center"
+                flexDirection="row"
+                w={wp(50)}
+              >
+                <Text fontSize="lg">Emilija's total:</Text>
+                <Text
+                  fontSize="xl"
+                  fontWeight="bold"
+                  _dark={{ color: "primary.400" }}
+                  _light={{ color: "primary.500" }}
+                >
+                  £{selectedItem?.data.totals.em.toFixed(2)}
+                </Text>
+              </Box>
+            </Box>
+
+            <Box alignItems="center" flexDirection="row" pt={2}>
+              <AwesomeButton
+                onPress={() => {
+                  setModalVisible(false);
+                  setSelectedItem(null);
+                  navigation.navigate("BillSplitter", {
+                    googleResponse: selectedItem.data,
+                    firestorePath: selectedItem.id,
+                  });
+                }}
+                width={wp(23)}
+                height={50}
+                borderRadius={25}
+                borderWidth={1}
+                borderColor={
+                  colorMode === "dark"
+                    ? theme.colors.primary[500]
+                    : theme.colors.backgroundLight.dark
+                }
+                backgroundColor={theme.colors[background].main}
+                backgroundDarker={theme.colors[background].darker}
+                raiseLevel={3}
+              >
+                <Icon
+                  mr={2}
+                  as={<Ionicons />}
+                  name={colorMode === "dark" ? "pencil-outline" : "pencil"}
+                  size="xs"
+                  color="primary.500"
+                />
+                <Text fontSize="lg" _dark={{ color: "primary.400" }}>
+                  Edit
+                </Text>
+              </AwesomeButton>
+              <AwesomeButton
+                onPress={() => {
+                  setAlertVis(true);
+                }}
+                style={{ marginStart: wp(3) }}
+                width={wp(27)}
+                height={50}
+                borderRadius={25}
+                borderWidth={1}
+                borderColor={theme.colors.error[500]}
+                backgroundColor={theme.colors[background].main}
+                backgroundDarker={theme.colors[background].darker}
+                raiseLevel={3}
+              >
+                <Icon
+                  mr={2}
+                  as={<Ionicons />}
+                  name={colorMode === "dark" ? "trash-outline" : "trash"}
+                  size="sm"
+                  color="error.500"
+                />
+                <Text color="error.400">Delete</Text>
+              </AwesomeButton>
+            </Box>
           </Modal.Body>
-          <Modal.Footer />
         </Modal.Content>
       </Modal>
       <AppBar />
-      <Box variant="background" safeAreaTop flex={1} alignItems="center">
+      <Box variant="background" flex={1} pt={8} alignItems="center">
         <FlatList
           data={bills}
+          showsVerticalScrollIndicator={false}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <Pressable onPress={() => setSelectedItem(item.data)}>
+            <TouchableOpacity onPress={() => setSelectedItem(item)}>
               <Box
+                w={wp(45)}
+                minW={210}
+                alignItems="center"
                 px={9}
                 py={3}
                 _dark={{ bg: "background.main", borderColor: "primary.500" }}
@@ -1438,7 +1661,7 @@ function History({ navigation }) {
                   {item.data.date?.substr(0, 2)}
                 </Text>
               </Box>
-            </Pressable>
+            </TouchableOpacity>
           )}
         />
       </Box>

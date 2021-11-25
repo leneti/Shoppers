@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, View, Text, Image, Dimensions } from "react-native";
-import { useColorModeValue } from "native-base";
+import { useColorModeValue, useColorMode } from "native-base";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -189,6 +189,7 @@ const Tab = createBottomTabNavigator();
 
 function Main() {
   const background = useColorModeValue("backgroundLight", "background");
+  const { colorMode } = useColorMode();
 
   return (
     <Tab.Navigator
@@ -223,7 +224,7 @@ function Main() {
           ),
         }}
       />
-      <Tab.Screen
+      {/* <Tab.Screen
         name="Shopping"
         component={ShoppingList}
         options={{
@@ -231,13 +232,17 @@ function Main() {
             <Ionicons name="list" size={24} color={color} />
           ),
         }}
-      />
+      /> */}
       <Tab.Screen
         name="Profile"
         component={Profile}
         options={{
           tabBarIcon: ({ color }) => (
-            <Ionicons name="person" size={24} color={color} />
+            <Ionicons
+              name={colorMode === "dark" ? "settings-outline" : "settings"}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, createRef } from "react";
 import { theme, navigatorOptions } from "../config/constants";
 import { createStackNavigator } from "@react-navigation/stack";
 import {
@@ -69,12 +69,12 @@ function ShoppingList({ navigation, route }) {
   }, []);
 
   useEffect(() => {
-    if (route.params?.newMeal) {
-      let idx = meals.findIndex((m) => m.title === route.params?.newMeal.title);
-      if (idx >= 0) return; //TO-DO: Edit an existing meal
-      setMeals((prev) => [...prev, newMeal]);
-      //TO-DO: Add new meal to async storage
-    }
+    if (!route.params?.newMeal) return;
+    let idx = meals.findIndex((m) => m.title === route.params.newMeal.title);
+    if (idx >= 0) return; //TO-DO: Edit an existing meal
+    setMeals((prev) => [...prev, route.params.newMeal]);
+    console.log(route.params.newMeal);
+    //TO-DO: Add new meal to async storage
   }, [route]);
 
   return (
@@ -87,7 +87,7 @@ function ShoppingList({ navigation, route }) {
             listRef.current.play();
           }}
         >
-          <Box w={wp(100)} h={wp(100)}>
+          <Box w={wp(100)} h={wp(75)}>
             <LottieView
               ref={listRef}
               autoPlay
@@ -100,11 +100,15 @@ function ShoppingList({ navigation, route }) {
         {meals.length > 0 ? (
           <FlatList
             data={meals}
-            renderItem={({ item }) => <Text>Meal</Text>}
-            keyExtractor={(item, index) => `${item}-${index}`}
+            keyExtractor={(_, index) => `meal${index}`}
+            renderItem={({ item }) => (
+              <Box>
+                <Text>{item.title}</Text>
+              </Box>
+            )}
             ListFooterComponent={
               <AwesomeButton
-                key="addmealbtn"
+                key="addmealbtnft"
                 onPress={() => navigation.navigate("AddMeal")}
                 width={wp(50)}
                 height={50}
@@ -171,7 +175,7 @@ function AddMeal({ navigation, route }) {
     route.params?.toEdit?.ingredients ?? [""]
   );
   const [value, setValue] = useState("");
-  const [focused, setFocused] = useState(0);
+  const focusedRef = useRef(-1);
 
   function AppBar() {
     return (
@@ -206,11 +210,33 @@ function AddMeal({ navigation, route }) {
     );
   }
 
+  const titleRef = useRef();
+  const ingredientRefs = useRef([]);
+  if (ingredientRefs.current.length !== ingredients.length) {
+    ingredientRefs.current = Array(ingredients.length)
+      .fill()
+      .map((_, i) => ingredientRefs.current[i] || createRef());
+  }
+
+  function SaveAndGoBack() {
+    if (focusedRef.current < 0) {
+      navigation.navigate("ShoppingList");
+      return;
+    }
+    let arr = [...ingredients];
+    arr[focusedRef.current] = value;
+    navigation.navigate("ShoppingList", {
+      newMeal: { title, ingredients: arr },
+    });
+  }
+
   return (
     <>
       <AppBar />
       <Box variant="background" flex={1} alignItems="center">
         <Input
+          ref={titleRef}
+          onLayout={() => titleRef.current.focus()}
           w={wp(98)}
           mt={5}
           size="2xl"
@@ -219,23 +245,29 @@ function AddMeal({ navigation, route }) {
           placeholder="Title"
           value={title}
           onChange={({ nativeEvent: { text } }) => setTitle(text)}
+          onSubmitEditing={() => ingredientRefs.current[0].focus()}
         />
         {ingredients.map((ingredient, i) => (
           <Input
             key={`${ingredient}-${i}`}
+            ref={(el) => (ingredientRefs.current[i] = el)}
             my={-2}
             mr={wp(5)}
             ml={wp(5)}
-            blurOnSubmit
-            returnKeyType="done"
+            blurOnSubmit={false}
             selectionColor="#ddd"
             variant="unstyled"
-            value={focused === i ? value : ingredient}
+            value={focusedRef.current === i ? value : ingredient}
+            onLayout={() => {
+              if (focusedRef.current === -2 && i === ingredients.length - 1)
+                ingredientRefs.current[i].focus();
+            }}
             onFocus={() => {
-              setFocused(i);
+              focusedRef.current = i;
               setValue(ingredient);
             }}
             onSubmitEditing={({ nativeEvent: { text } }) => {
+              focusedRef.current = -2;
               setIngredients((prev) => {
                 let edited = [...prev];
                 edited[i] = text;
@@ -272,10 +304,10 @@ function AddMeal({ navigation, route }) {
             }
             InputRightElement={
               <Box>
-                {focused === i && (
+                {focusedRef.current === i && (
                   <TouchableOpacity
                     onPress={() => {
-                      setFocused(-1);
+                      focusedRef.current = -1;
                       setIngredients((prev) =>
                         prev.filter((_, index) => index != i)
                       );
@@ -310,11 +342,7 @@ function AddMeal({ navigation, route }) {
         </Box>
         <Box pos="absolute" mb={5} bottom={0}>
           <AwesomeButton
-            onPress={() =>
-              navigation.navigate("ShoppingList", {
-                newMeal: { title, ingredients },
-              })
-            }
+            onPress={() => SaveAndGoBack()}
             width={wp(70)}
             height={50}
             borderRadius={25}

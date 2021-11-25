@@ -51,9 +51,10 @@ export const theme = extendTheme({
         return {
           color: themeTools.mode("backgroundLight.dark", "white")(props),
           fontFamily: "body",
+          selectionColor: "primary.100",
         };
       },
-      defaultProps: { fontSize: "md" },
+      defaultProps: { fontSize: "md", selectable: true },
       fontSizes: {
         "2xs": 8.5 / Dimensions.get("screen").fontScale,
         xs: 10.2 / Dimensions.get("screen").fontScale,
