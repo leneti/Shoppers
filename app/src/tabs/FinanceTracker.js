@@ -268,7 +268,7 @@ function Overview({ navigation, route }) {
           bankToAdd["accounts"] = accsToAdd;
           accountsToBeSet.push(bankToAdd);
         }
-        setAccounts(accountsToBeSet);
+        setAccounts([...accountsToBeSet, { addAnAccountBtn: true }]);
       } catch (e) {
         console.log(e);
       } finally {
@@ -282,7 +282,25 @@ function Overview({ navigation, route }) {
   }, [route]);
 
   const renderAccount = ({ item }) => {
-    return (
+    return item.addAnAccountBtn ? (
+      <TouchableOpacity onPress={() => navigation.navigate("AddAccount")}>
+        <Box
+          h={wp(15)}
+          px={3}
+          rounded="full"
+          borderColor={
+            colorMode === "dark" ? "primary.500" : "backgroundLight.dark"
+          }
+          flexDirection="row"
+          alignItems="center"
+        >
+          <Icon as={<Ionicons />} name="add" size="lg" color="primary.500" />
+          <Text w={wp(20)} textAlign="center" fontWeight="bold">
+            Add another account
+          </Text>
+        </Box>
+      </TouchableOpacity>
+    ) : (
       <TouchableOpacity
         onPress={() => navigation.navigate("BankDetails", { item })}
       >
@@ -516,7 +534,11 @@ function Overview({ navigation, route }) {
             Linked accounts
           </Text>
           <TouchableOpacity
-            onPress={() => navigation.navigate("LinkedAccounts", { accounts })}
+            onPress={() =>
+              navigation.navigate("LinkedAccounts", {
+                accounts: accounts.slice(0, -1),
+              })
+            }
           >
             <Text color="primary.500" fontWeight="bold" fontSize="lg">
               Manage
@@ -558,7 +580,7 @@ function Overview({ navigation, route }) {
                 size="md"
                 color="primary.500"
               />
-              <Text _dark={{ color: "primary.400" }}>Add another account</Text>
+              <Text _dark={{ color: "primary.400" }}>Add an account</Text>
             </AwesomeButton>
           </Box>
         ) : (

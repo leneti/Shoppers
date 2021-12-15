@@ -3,20 +3,22 @@ import { Animated, Dimensions } from "react-native";
 import "intl";
 import "intl/locale-data/jsonp/en-GB";
 
+const primaryColor = {
+  50: "#fffbeb",
+  100: "#fef3c7",
+  200: "#fde68a",
+  300: "#fcd34d",
+  400: "#fbbf24",
+  500: "#f59e0b",
+  600: "#d97706",
+  700: "#b45309",
+  800: "#92400e",
+  900: "#78350f",
+};
+
 export const theme = extendTheme({
   colors: {
-    primary: {
-      50: "#fffbeb",
-      100: "#fef3c7",
-      200: "#fde68a",
-      300: "#fcd34d",
-      400: "#fbbf24",
-      500: "#f59e0b",
-      600: "#d97706",
-      700: "#b45309",
-      800: "#92400e",
-      900: "#78350f",
-    },
+    primary: primaryColor,
     secondary: {
       50: "#ffe4f6",
       100: "#fcb6dd",
@@ -51,10 +53,10 @@ export const theme = extendTheme({
         return {
           color: themeTools.mode("backgroundLight.dark", "white")(props),
           fontFamily: "body",
-          selectionColor: "primary.100",
+          selectionColor: primaryColor["100"],
         };
       },
-      defaultProps: { fontSize: "md", selectable: true },
+      defaultProps: { fontSize: "md" },
       fontSizes: {
         "2xs": 8.5 / Dimensions.get("screen").fontScale,
         xs: 10.2 / Dimensions.get("screen").fontScale,

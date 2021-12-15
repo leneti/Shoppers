@@ -1154,6 +1154,7 @@ function BillCalculator({
           <Text
             fontSize="3xl"
             fontWeight="bold"
+            selectable
             _dark={{ color: "primary.400" }}
             _light={{ color: "primary.500" }}
           >
@@ -1162,6 +1163,7 @@ function BillCalculator({
           <Text
             fontSize="3xl"
             fontWeight="bold"
+            selectable
             _dark={{ color: "primary.400" }}
             _light={{ color: "primary.500" }}
           >
